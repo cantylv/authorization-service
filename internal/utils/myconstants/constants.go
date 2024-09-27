@@ -4,10 +4,7 @@ type AccessKey string
 
 // Частые переменные
 const (
-	RequestID          = "request_id"
-	JwtPayload         = "jwt_payload"
-	RefreshToken       = "refresh_token"
-	DayExpRefreshToken = 30
+	RequestID = "request_id"
 )
 
 // Настройка хэширования с помощью Argon2

@@ -35,18 +35,16 @@ var (
 
 var (
 	sqlRowGetByEmail = fmt.Sprintf(
-		`SELECT %s FROM user WHERE email=$1`,
+		`SELECT %s FROM "user" WHERE email=$1`,
 		user_fields,
 	)
-
 	sqlRowCreateUser = fmt.Sprintf(`
 		INSERT INTO "user" (
 			email,  
 			password,
 			first_name,
-			last_name,    
-		) VALUES ($1, $2, $3, $4) RETURNING %s
-	`, user_fields)
+			last_name    
+		) VALUES ($1, $2, $3, $4) RETURNING %s`, user_fields)
 )
 
 func (r *RepoLayer) GetByEmail(ctx context.Context, email string) (*ent.User, error) {
@@ -84,28 +82,3 @@ func (r *RepoLayer) Create(ctx context.Context, initData *ent.User) (*ent.User, 
 	}
 	return &u, nil
 }
-
-// func (repo *RepoLayer) Update(ctx context.Context, updateData *ent.User) (*ent.User, error) {
-// 	timeNow := time.Now().UTC().Format(cnst.Timestamptz)
-// 	userData := data.GetUpdateInfo()
-// 	timeNowMetric := time.Now()
-// 	row, err := repo.database.ExecContext(ctx,
-// 		`UPDATE "user" SET name = $1, email = $2, phone = $3, img_url = $4, password = $5, card_number = $6,
-//                   address = $7, updated_at = $8 WHERE email = $9`,
-// 		userData.GetName(), userData.GetEmail(), functions.MaybeNullString(userData.GetPhone()), userData.GetImgUrl(),
-// 		userData.GetPassword(), functions.MaybeNullString(userData.GetCardNumber()), functions.MaybeNullString(userData.GetAddress()), timeNow, data.GetEmail())
-
-// 	timeEnd := time.Since(timeNowMetric)
-// 	repo.metrics.DatabaseDuration.WithLabelValues(metrics.UPDATE).Observe(float64(timeEnd.Milliseconds()))
-// 	if err != nil {
-// 		return err
-// 	}
-// 	numRows, err := row.RowsAffected()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if numRows == 0 {
-// 		return myerrors.SqlNoRowsUserRelation
-// 	}
-// 	return nil
-// }

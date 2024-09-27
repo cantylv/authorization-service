@@ -8,9 +8,7 @@ import (
 )
 
 func Init(r *mux.Router, logger *zap.Logger) (h http.Handler) {
-	h = JwtVerification(r, logger)
-	// h = Csrf(h)
-	h = Cors(h)
+	h = Cors(r)
 	h = Recover(h, logger)
 	h = Access(h, logger)
 	return h

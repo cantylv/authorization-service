@@ -3,18 +3,18 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -------- DDL --------
 CREATE TABLE "user" (
-    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
-    password BYTEA NOT NULL,
+    password TEXT NOT NULL,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE session (
     id SERIAL PRIMARY KEY,
-    user_id UUID REFERENCES "user" (id) ON DELETE CASCADE,
+    user_id UUID REFERENCES "user"(id) ON DELETE CASCADE,
     refresh_token TEXT NOT NULL,
     fingerprint TEXT NOT NULL,
     user_ip_address TEXT NOT NULL,  /*IPv4 or IPv6*/
@@ -24,11 +24,12 @@ CREATE TABLE session (
 
 -------- TABLE CONSTRAINTS --------
 -- table 'user'
-ALTER TABLE user
+ALTER TABLE "user"
 ADD CONSTRAINT field_max_length CHECK (
     LENGTH(email) <= 50 AND 
-    LENGTH(username) <= 50 AND 
-    LENGTH(first_name) <= 50
+    LENGTH(password) = 145 AND 
+    LENGTH(first_name) <= 50 AND 
+    LENGTH(last_name) <= 50
 );
 
 -- table 'session'
@@ -42,14 +43,14 @@ ADD CONSTRAINT field_max_length CHECK (
 -------- FUNCTIONS AND TRIGGERS --------
 -- table 'user'
 CREATE OR REPLACE FUNCTION update_updated_at_user_column()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_user_updated_at
-BEFORE UPDATE ON user
+BEFORE UPDATE ON "user"
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_user_column();

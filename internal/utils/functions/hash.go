@@ -16,7 +16,7 @@ func HashData(payload, salt []byte) string {
 	saltCopy := make([]byte, len(salt))
 	copy(saltCopy, salt)
 	hashedPassword := argon2.IDKey(payload, salt, mc.HashTime, mc.HashMemory, mc.HashThreads, mc.HashKeylen)
-	return hex.EncodeToString(append(salt, hashedPassword...))
+	return hex.EncodeToString(hashedPassword)
 }
 
 func GetHashedPassword(pwdPass string) (string, error) {
@@ -40,5 +40,6 @@ func generateNewSalt() (string, error) {
 func IsPasswordsEqual(pwdPass, pwdDB string) bool {
 	saltDB := strings.Split(pwdDB, ".")[1]
 	hash := HashData([]byte(pwdPass), []byte(saltDB))
+
 	return fmt.Sprintf("%s.%s", hash, saltDB) == pwdDB
 }
