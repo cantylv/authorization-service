@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Init инициализирует клиента PostgreSQL.
 func Init(logger *zap.Logger) *pgx.Conn {
 	connString := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		viper.GetString("postgres.user"),

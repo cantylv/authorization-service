@@ -33,8 +33,7 @@ type AccessLogEnd struct {
 	Logger         *zap.Logger
 }
 
-// Access
-// Middleware that logs the start and end of request handling.
+// Access middleware, который регистрирует начало и конец обработки запроса.
 func Access(h http.Handler, logger *zap.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestId := uuid.NewV4().String()
@@ -71,8 +70,7 @@ func Access(h http.Handler, logger *zap.Logger) http.Handler {
 	})
 }
 
-// LogInitRequest
-// Logs user-agent, real-ip and etc..
+// LogInitRequest регистрирует user-agent, IP-адрес клиента и т. д.
 func LogInitRequest(data AccessLogStart) {
 	data.Logger.Info("init request",
 		zap.String("user-agent", data.UserAgent),
@@ -85,8 +83,7 @@ func LogInitRequest(data AccessLogStart) {
 	)
 }
 
-// LogEndRequest
-// Logs latency in ms, response size and etc..
+// LogEndRequest регистрирует задержку в мс, размер ответа и т. д.
 func LogEndRequest(data AccessLogEnd) {
 	data.Logger.Info("end of request",
 		zap.Int64("latensy-ms", data.LatencyMs),

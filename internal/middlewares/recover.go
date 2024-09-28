@@ -10,6 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// Recover middleware для обработки паники, возникающей в работе сервера. В случае паники возвращается
+// json-объект c сообщением об ошибке внутри сервера и статусом 500.
 func Recover(h http.Handler, logger *zap.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {

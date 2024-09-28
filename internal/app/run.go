@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Run движок нашего сервера, здесь инициализируется доступ к БД, обработчики запросов.
 func Run(logger *zap.Logger) {
 	// init psql
 	postgresClient := postgres.Init(logger)

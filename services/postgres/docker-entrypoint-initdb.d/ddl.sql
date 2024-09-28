@@ -2,47 +2,65 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -------- DDL --------
-CREATE TABLE "user" (
-    id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    first_name TEXT NOT NULL,
-    last_name TEXT NOT NULL,
+-- Эта таблица содержит данные о пользователях
+CREATE TABLE group (
+    id INT GENERATED ALWAYS AS IDENTITY,
+    owner_id UUID REFERENCES "user"(id) ON DELETE RESTRICT,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE session (
-    id SERIAL PRIMARY KEY,
-    user_id UUID REFERENCES "user"(id) ON DELETE CASCADE,
-    refresh_token TEXT NOT NULL,
-    fingerprint TEXT NOT NULL,
-    user_ip_address TEXT NOT NULL,  /*IPv4 or IPv6*/
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+-- Эта таблица содержит доступы пользователей к процессам
+CREATE TABLE role (
+    id INT GENERATED ALWAYS AS IDENTITY,
+    user_id UUID REFERENCES "user" (id) ON DELETE CASCADE,
+    privelege_id REFERENCES privelege(id) ON DELETE CASCADE
+);
+
+-- Эта таблица содержит названия процессов
+CREATE TABLE privelege (
+    id INT GENERATED ALWAYS AS IDENTITY,
+    name TEXT, /*microservice_id.request_url.method*/
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+
+-- Эта таблица содержит данные о группах
+CREATE TABLE group (
+    id INT GENERATED ALWAYS AS IDENTITY,
+    owner_id UUID REFERENCES "user"(id) ON DELETE RESTRICT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Эта таблица содержит доступы пользователей к процессам
+CREATE TABLE participation (
+    id INT GENERATED ALWAYS AS IDENTITY,
+    user_id UUID REFERENCES "user"(id) ON DELETE CASCADE,
+    group_id INT REFERENCES group(id) ON DELETE CASCADE
+)
+
+-------- INDEXES --------
+CREATE INDEX user_privelege ON role (user_id, privelege_id);
 
 -------- TABLE CONSTRAINTS --------
 -- table 'user'
 ALTER TABLE "user"
-ADD CONSTRAINT field_max_length CHECK (
-    LENGTH(email) <= 50 AND 
+ADD CONSTRAINT fields_length CHECK (
+    LENGTH(email) <= 50 AND LENGTH(email) >= 6 AND 
     LENGTH(password) = 145 AND 
-    LENGTH(first_name) <= 50 AND 
-    LENGTH(last_name) <= 50
+    LENGTH(first_name) <= 50 AND LENGTH(first_name) >= 2 AND
+    LENGTH(last_name) <= 50 AND LENGTH(last_name) >= 2
 );
 
--- table 'session'
-ALTER TABLE session
-ADD CONSTRAINT field_max_length CHECK (
-    LENGTH(refresh_token) <= 60 AND 
-    LENGTH(fingerprint) <= 150 AND 
-    LENGTH(user_ip_address) <= 39 AND LENGTH(user_ip_address) >= 7
+-- table roles
+ALTER TABLE privelege
+ADD CONSTRAINT name_privelege_max_length CHECK (
+    LENGTH(privelege) <= 200 AND LENGTH(privelege) >= 10
 );
 
 -------- FUNCTIONS AND TRIGGERS --------
 -- table 'user'
-CREATE OR REPLACE FUNCTION update_updated_at_user_column()
+CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
@@ -53,4 +71,4 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER update_user_updated_at
 BEFORE UPDATE ON "user"
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_user_column();
+EXECUTE FUNCTION update_updated_at_column();

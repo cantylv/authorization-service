@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// main точка старта приложения 
 func main() {
 	logger := zap.Must(zap.NewProduction())
 	config.Read("./config/config.yaml", logger)

@@ -1,0 +1,1 @@
+INSERT INTO TABLE "user"(email, password, first_name, last_name) VALUES ("root@mail.ru", "", "German", "Gref");

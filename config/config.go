@@ -10,6 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// setDefault устанавливает переменные конфигурации viper по умолчанию. Используется для случая, 
+// когда файл конфигурации не был найден. 
 func setDefault() {
 	// PROJECT
 	if secretKey := os.Getenv("SECRET_KEY"); secretKey == "" {
@@ -41,7 +43,7 @@ func setDefault() {
 	}
 }
 
-// Read gets variables from environment and configuration file
+// Read получает переменные из среды и файла конфигурации
 func Read(configFilePath string, logger *zap.Logger) {
 	setDefault()
 	viper.SetConfigFile(configFilePath)
