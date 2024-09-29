@@ -45,5 +45,9 @@ func (u *UsecaseLayer) CanExecute(ctx context.Context, userEmail, processName, u
 		}
 		return false, err
 	}
-	// 
+	// нужно проверить, является ли uAskEmail тем, кто может дать грант
+	// пользователь может дать грант, если он является владельцем группы
+	// и группа владеет микросервисомц
+	// дать доступ к микросервису может только root
+	return true, nil
 }

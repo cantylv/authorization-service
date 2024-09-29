@@ -20,7 +20,8 @@ CREATE TABLE role (
 -- Эта таблица содержит названия процессов
 CREATE TABLE privelege (
     id INT GENERATED ALWAYS AS IDENTITY,
-    name TEXT, /*microservice_id.request_url.method*/
+    microservice_id REFERENCES microsevice(id) ON DELETE CASCADE,
+    name TEXT, /*request_url.method*/
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
@@ -38,6 +39,13 @@ CREATE TABLE participation (
     user_id UUID REFERENCES "user"(id) ON DELETE CASCADE,
     group_id INT REFERENCES group(id) ON DELETE CASCADE
 )
+
+-- Эта таблица содержит доступы групп к микросервисам 
+CREATE TABLE scope (
+    id INT GENERATED ALWAYS AS IDENTITY,
+    group_id
+)
+
 
 -------- INDEXES --------
 CREATE INDEX user_privelege ON role (user_id, privelege_id);
