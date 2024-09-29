@@ -87,3 +87,65 @@ npm run test
 
 ## Источники
 Если вы чем-то вдохновлялись, расскажите об этом: где брали идеи, какие туториалы смотрели, ссылки на исходники кода. 
+
+```mermaid
+erDiagram
+    user {
+        UUID id PK "DEFAULT gen_random_uuid()"
+        TEXT(6-50) email UK "NOT NULL"
+        TEXT(145) password "NOT NULL"
+        TEXT(2-50) first_name "NOT NULL"
+        TEXT(2-50) last_name "NOT NULL"
+        TIMESTAMPTZ created_at "DEFAULT now()"
+        TIMESTAMPTZ updated_at "DEFAULT now()"
+    }
+
+    microservice {
+        INT id PK "GENERATED ALWAYS AS IDENTITY"
+        TEXT(2-50) name UK 
+        TIMESTAMPTZ created_at "DEFAULT now()"
+        TIMESTAMPTZ updated_at "DEFAULT now()"
+    }
+
+    group {
+        INT id PK "GENERATED ALWAYS AS IDENTITY"
+        UUID owner_id FK "ON DELETE RESTRICT"
+        TIMESTAMPTZ created_at "DEFAULT now()"
+        TIMESTAMPTZ updated_at "DEFAULT now()"
+    }
+
+    privelege {
+        INT id PK "GENERATED ALWAYS AS IDENTITY"
+        INT microservice_id FK "ON DELETE CASCADE"
+        TEXT(10-200) name
+        TIMESTAMPTZ created_at "DEFAULT now()"
+    }
+
+    role {
+        INT id PK "GENERATED ALWAYS AS IDENTITY"
+        INT user_id FK "ON DELETE CASCADE"
+        INT privelege_id FK "ON DELETE CASCADE"
+    }
+
+    participation {
+        INT id PK "GENERATED ALWAYS AS IDENTITY"
+        UUID user_id FK "ON DELETE CASCADE"
+        INT group_id FK "ON DELETE CASCADE"
+    }
+
+    workteam {
+        INT id PK "GENERATED ALWAYS AS IDENTITY"
+        INT group_id FK "ON DELETE CASCADE"
+        INT microservice_id FK "ON DELETE CASCADE"
+    }
+
+    user ||--o{ group : owns
+    user ||--o{ role : has
+    user ||--o{ participation : participates_in
+
+    microservice ||--o{ privelege : has
+    group ||--o{ participation : contains
+    group ||--o{ workteam : includes
+    microservice ||--o{ workteam : provides
+    privelege ||--o{ role : grants
+```
