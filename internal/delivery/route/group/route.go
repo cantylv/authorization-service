@@ -1,8 +1,10 @@
 package group
 
 import (
-	"net/http"
-
+	dGroup "github.com/cantylv/authorization-service/internal/delivery/group"
+	repoGroup "github.com/cantylv/authorization-service/internal/repo/group"
+	repoUser "github.com/cantylv/authorization-service/internal/repo/user"
+	"github.com/cantylv/authorization-service/internal/usecase/group"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
@@ -10,9 +12,14 @@ import (
 
 // InitHandlers инициализирует обработчики запросов, отвечающих за права пользователя к ресурсу
 func InitHandlers(r *mux.Router, postgresClient *pgx.Conn, logger *zap.Logger) {
-	r.HandleFunc("/api/v1/groups/{groupID}/add_user/{email}/who_invites/{email_invite}", func(http.ResponseWriter, *http.Request) {}).Methods("POST") // добавляет пользователя в группу
-	r.HandleFunc("/api/v1/users/{email}/groups/who_asks/{email_ask}", func(http.ResponseWriter, *http.Request) {}).Methods("GET")                     // возвращает список групп пользователя
-	r.HandleFunc("/api/v1/groups/{groupID}/kick_user/{email}/who_kicks/{email_kicks}", func(http.ResponseWriter, *http.Request) {}).Methods("PUT")    // удаляет пользователя из группы
-	r.HandleFunc("/api/v1/users/{email}/groups/new", func(http.ResponseWriter, *http.Request) {}).Methods("POST")                                     // добавляет заявку на создание группы
-	r.HandleFunc("/api/v1/users/{email}/groups/{groupID}/status", func(http.ResponseWriter, *http.Request) {}).Methods("POST")                        // подтверждает/отклоняет заявку на создание группы
+	repoUser := repoUser.NewRepoLayer(postgresClient)
+	repoGroup := repoGroup.NewRepoLayer(postgresClient)
+	usecaseGroup := group.NewUsecaseLayer(repoUser, repoGroup)
+	userHandlerManager := dGroup.NewGroupHandlerManager(usecaseGroup, logger)
+	r.HandleFunc("/api/v1/groups/{group_name}/add_user/{email}/who_invites/{email_invite}", userHandlerManager.AddUserToGroup).Methods("POST")           // добавляет пользователя в группу
+	r.HandleFunc("/api/v1/users/{email}/groups/who_asks/{email_ask}", userHandlerManager.GetUserGroups).Methods("GET")                                   // возвращает список групп пользователя
+	r.HandleFunc("/api/v1/groups/{group_name}/kick_user/{email}/who_kicks/{email_kick}", userHandlerManager.KickOutUser).Methods("POST")                 // удаляет пользователя из группы
+	r.HandleFunc("/api/v1/groups/{group_name}/who_adds/{email_add}", userHandlerManager.RequestToCreateGroup).Methods("POST")                            // добавляет заявку на создание группы
+	r.HandleFunc("/api/v1/users/{email}/groups/{group_name}/who_change_status/{email_change_status}", userHandlerManager.ChangeBidStatus).Methods("PUT") // подтверждает/отклоняет заявку на создание группы ? доступна только root
+	r.HandleFunc("/api/v1/groups/{group_name}/users/{email}/who_change_owner/{email_change_owner}", userHandlerManager.ChangeOwner).Methods("PUT")       // изменяет ответственного за группу
 }

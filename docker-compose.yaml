@@ -10,25 +10,25 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DATABASE}
-    # volumes:
-    #   - ./services/postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
-      - ./services/postgres/data:/var/lib/postgresql/data
+    volumes:
+      - ./services/postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
+      # - ./services/postgres/data:/var/lib/postgresql/data
     ports:
       - ${POSTGRES_PORT}:${POSTGRES_PORT}
     networks:
       - ecosystem
-  pgamdin:
-    image: dpage/pgadmin4:latest
-    restart: always
-    container_name: pgamdin
-    env_file: .env
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
-      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
-    ports:
-      - 82:80
-    networks:
-      - ecosystem
+  # pgamdin:
+  #   image: dpage/pgadmin4:latest
+  #   restart: always
+  #   container_name: pgamdin
+  #   env_file: .env
+  #   environment:
+  #     - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+  #     - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+  #   ports:
+  #     - 82:80
+  #   networks:
+  #     - ecosystem
 
 networks:
   ecosystem:

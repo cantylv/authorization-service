@@ -18,6 +18,10 @@ import (
 func Run(logger *zap.Logger) {
 	// init psql
 	postgresClient := postgres.Init(logger)
+	defer func() {
+		err := postgresClient.Close(context.Background())
+		logger.Error(fmt.Sprintf("error while closing connection with psql: %v", err))
+	}()
 	// define handlers
 	r := mux.NewRouter()
 	// run server

@@ -7,7 +7,7 @@ import (
 
 func getUserWithoutPassword(user *ent.User) *dto.UserWithoutPassword {
 	return &dto.UserWithoutPassword{
-		ID:        user.Id,
+		ID:        user.ID,
 		Email:     user.Email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,

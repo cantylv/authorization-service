@@ -13,18 +13,29 @@ CREATE TABLE "user" (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Эта таблица содержит названия микросервисов
-CREATE TABLE microservice (
+-- Эта таблица содержит данные о группах
+CREATE TABLE "group" (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name TEXT,
+    owner_id UUID REFERENCES "user"(id) ON DELETE RESTRICT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Эта таблица содержит данные о группах
-CREATE TABLE "group" (
+CREATE TABLE agent (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    owner_id UUID REFERENCES "user"(id) ON DELETE RESTRICT,
+    name TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE TYPE status_type AS ENUM ('in_progress', 'rejected', 'approved');
+
+-- Эта таблица содержит данные о заявках на создание группу
+CREATE TABLE bid (
+    id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    group_name TEXT,
+    user_id UUID REFERENCES "user"(id) ON DELETE CASCADE,
+    status status_type,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
@@ -32,34 +43,17 @@ CREATE TABLE "group" (
 -- Эта таблица содержит названия процессов
 CREATE TABLE privelege (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    microservice_id INT REFERENCES microservice(id) ON DELETE CASCADE,
-    name TEXT, /*request_url.method*/
+    agent_id INT REFERENCES agent(id) ON DELETE CASCADE,
+    group_id INT REFERENCES "group"(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Эта таблица содержит доступы пользователей к процессам
-CREATE TABLE role (
-    id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id UUID REFERENCES "user" (id) ON DELETE CASCADE,
-    privelege_id INT REFERENCES privelege(id) ON DELETE CASCADE
-);
-
--- Эта таблица содержит доступы пользователей к процессам
+-- Эта таблица содержит доступы пользователей к группам
 CREATE TABLE participation (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id UUID REFERENCES "user"(id) ON DELETE CASCADE,
     group_id INT REFERENCES "group"(id) ON DELETE CASCADE
 );
-
--- Эта таблица содержит доступы групп к микросервисам 
-CREATE TABLE workteam (
-    id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    group_id INT REFERENCES "group"(id) ON DELETE CASCADE,
-    microservice_id INT REFERENCES microservice(id) ON DELETE CASCADE
-);
-
--------- INDEXES --------
-CREATE INDEX user_privelege ON role (user_id, privelege_id);
 
 -------- TABLE CONSTRAINTS --------
 -- table 'user'
@@ -80,24 +74,32 @@ ALTER COLUMN updated_at SET NOT NULL;
 
 -- table 'privelege'
 ALTER TABLE privelege
-ADD CONSTRAINT privelege_name_length CHECK (LENGTH(name) <= 200 AND LENGTH(name) >= 10);
-
-ALTER TABLE privelege
-ALTER COLUMN name SET NOT NULL,
 ALTER COLUMN created_at SET NOT NULL;
 
 -- table 'group'
 ALTER TABLE "group"
+ADD CONSTRAINT group_unique_name UNIQUE (name),
+ADD CONSTRAINT group_name_length CHECK (LENGTH(name)>=2 AND LENGTH(name) <= 30);
+
+ALTER TABLE "group"
+ALTER COLUMN name SET NOT NULL,
 ALTER COLUMN created_at SET NOT NULL,
 ALTER COLUMN updated_at SET NOT NULL;
 
--- table 'microservice'
-ALTER TABLE microservice
-ADD CONSTRAINT microservice_name_unique UNIQUE(name),
-ADD CONSTRAINT microservice_name_length CHECK (LENGTH(name) <= 50 AND LENGTH(name) >= 2);
+-- table 'agent'
+ALTER TABLE agent
+ADD CONSTRAINT agent_unique_name UNIQUE (name),
+ADD CONSTRAINT agent_name_length CHECK (LENGTH(name)>=2 AND LENGTH(name) <= 50);
 
-ALTER TABLE microservice
+ALTER TABLE "group"
 ALTER COLUMN name SET NOT NULL,
+ALTER COLUMN created_at SET NOT NULL;
+
+
+-- table 'bid'
+ALTER TABLE bid
+ALTER COLUMN group_name SET NOT NULL,
+ALTER COLUMN status SET NOT NULL,
 ALTER COLUMN created_at SET NOT NULL,
 ALTER COLUMN updated_at SET NOT NULL;
 
@@ -121,7 +123,4 @@ BEFORE UPDATE ON "group"
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_microservice_updated_at
-BEFORE UPDATE ON microservice
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+

@@ -15,3 +15,8 @@ const (
 	HashKeylen  = 56
 	HashLetters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
 )
+
+var AllowedStatus = map[string]struct{}{
+	"approved": {},
+	"rejected": {},
+}

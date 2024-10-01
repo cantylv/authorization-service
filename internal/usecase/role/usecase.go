@@ -30,7 +30,7 @@ func NewUsecaseLayer(repoRole role.Repo, repoUser user.Repo) *UsecaseLayer {
 
 func (u *UsecaseLayer) CanExecute(ctx context.Context, userEmail, processName, userAskEmail string) (bool, error) {
 	// проверяем, существует ли пользователь, права которого хотим проверить
-	uEmail, err := u.repoUser.GetByEmail(ctx, userEmail)
+	_, err := u.repoUser.GetByEmail(ctx, userEmail)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, me.ErrUserNotExist
@@ -38,7 +38,7 @@ func (u *UsecaseLayer) CanExecute(ctx context.Context, userEmail, processName, u
 		return false, err
 	}
 	// проверяем, существует ли пользователь, который запрашивает права
-	uAskEmail, err := u.repoUser.GetByEmail(ctx, userEmail)
+	_, err = u.repoUser.GetByEmail(ctx, userEmail)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, me.ErrUserNotExist
