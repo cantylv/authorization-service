@@ -1,11 +1,11 @@
-package role
+package privelege
 
 import (
 	"context"
 	"database/sql"
 	"errors"
 
-	"github.com/cantylv/authorization-service/internal/repo/role"
+	"github.com/cantylv/authorization-service/internal/repo/privelege"
 	"github.com/cantylv/authorization-service/internal/repo/user"
 	me "github.com/cantylv/authorization-service/internal/utils/myerrors"
 )
@@ -17,11 +17,11 @@ type Usecase interface {
 var _ Usecase = (*UsecaseLayer)(nil)
 
 type UsecaseLayer struct {
-	repoRole role.Repo
+	repoRole privelege.Repo
 	repoUser user.Repo
 }
 
-func NewUsecaseLayer(repoRole role.Repo, repoUser user.Repo) *UsecaseLayer {
+func NewUsecaseLayer(repoRole privelege.Repo, repoUser user.Repo) *UsecaseLayer {
 	return &UsecaseLayer{
 		repoRole: repoRole,
 		repoUser: repoUser,
