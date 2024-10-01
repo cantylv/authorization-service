@@ -261,7 +261,7 @@ func (u *UsecaseLayer) UpdateRequestStatus(ctx context.Context, userEmail, group
 	// если root пользователь отказывает в создании группы, то нам нет смысла
 	// узнавать, есть ли такая группа уже
 	if status == "rejected" {
-		b, err := u.repoGroup.RejectGroupCreation(ctx, groupName, uDB.ID)
+		b, err := u.repoGroup.RejectGroupCreation(ctx, bidDB.ID)
 		if err != nil {
 			return nil, err
 		}

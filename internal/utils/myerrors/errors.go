@@ -15,12 +15,13 @@ var (
 	ErrOnlyRootCanChangeBidStatus      = errors.New("only root user can approve or reject bid")
 	ErrOnlyRootCanAddAgent             = errors.New("only root user can add server agent")
 	ErrOnlyRootCanDeleteAgent          = errors.New("only root user can delete server agent")
-	ErrOnlyRootCanGetAgents          = errors.New("only root user can get server agents")
+	ErrOnlyRootCanGetAgents            = errors.New("only root user can get server agents")
 	ErrCantDeleteRoot                  = errors.New("cant't delete root user")
 	ErrUserEmailMustBeDiff             = errors.New("user emails must be different")
 	ErrUserAlreadyInGroup              = errors.New("user already in group")
 	ErrUserIsNotInGroup                = errors.New("user is not in group")
 	ErrUserIsAlreadyOwner              = errors.New("user is already an owner")
+	ErrUserIsNotOwner                  = errors.New("user is not an owner")
 	ErrUserIsResponsible               = errors.New("user is responsible for group/groups, so root user need to appoint new owner")
 	ErrDeleteRootFromGroup             = errors.New("user doesn't have enough rights to delere root user from group")
 	// DATABASE
@@ -34,6 +35,8 @@ var (
 	ErrGroupAlreadyExist      = errors.New("group with this name already exist")
 	ErrBidAlreadyExist        = errors.New("bid with this name already exist")
 	ErrAgentAlreadyExist      = errors.New("agent with this name already exist")
+	ErrGroupAgentAlreadyExist = errors.New("agent with this name already belongs to the selected group")
+	ErrGroupAgentNotExist     = errors.New("agent with this name not belongs to the selected group")
 	ErrPasswordMismatch       = errors.New("passwords are not equal")
 	// DTO
 	ErrInvalidEmail     = errors.New("incorrect email was sent, correct format is username@domain.extension, e.g.: gref@sber.ru")

@@ -5,6 +5,7 @@ import (
 
 	"github.com/cantylv/authorization-service/internal/delivery/route/agent"
 	"github.com/cantylv/authorization-service/internal/delivery/route/group"
+	"github.com/cantylv/authorization-service/internal/delivery/route/privelege"
 	"github.com/cantylv/authorization-service/internal/delivery/route/user"
 	"github.com/cantylv/authorization-service/internal/middlewares"
 	"github.com/gorilla/mux"
@@ -17,6 +18,7 @@ func InitHTTPHandlers(r *mux.Router, postgresClient *pgx.Conn, logger *zap.Logge
 	user.InitHandlers(r, postgresClient, logger)
 	group.InitHandlers(r, postgresClient, logger)
 	agent.InitHandlers(r, postgresClient, logger)
+	privelege.InitHandlers(r, postgresClient, logger)
 	h := middlewares.Init(r, logger)
 	return h
 }

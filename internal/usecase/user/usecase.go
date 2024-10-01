@@ -35,7 +35,7 @@ func NewUsecaseLayer(repoUser user.Repo, repoGroup group.Repo) *UsecaseLayer {
 	}
 }
 
-// Create создает пользователя. Пароль, передаваемый в теле запроса, хэшируется с помощью соли 
+// Create создает пользователя. Пароль, передаваемый в теле запроса, хэшируется с помощью соли
 // алгоритмом Argon2.
 func (u *UsecaseLayer) Create(ctx context.Context, authData *dto.CreateData) (*ent.User, error) {
 	// проверяем, существует ли уже пользователь c такой почтой
@@ -72,7 +72,7 @@ func (u *UsecaseLayer) Read(ctx context.Context, email string) (*ent.User, error
 }
 
 // Delete удаляет пользователя из системы.
-// Нельзя удалить root пользователя, а также любого ответственного за группу. Также удалить пользователя 
+// Нельзя удалить root пользователя, а также любого ответственного за группу. Также удалить пользователя
 // может только root, либо пользователь сам себя удаляет.
 func (u *UsecaseLayer) Delete(ctx context.Context, userEmail, userEmailAsk string) error {
 	if userEmail == viper.GetString("root_email") {
@@ -87,7 +87,7 @@ func (u *UsecaseLayer) Delete(ctx context.Context, userEmail, userEmailAsk strin
 		return err
 	}
 	// проверяем, что пользователь не является ответственным за организации
-	groups, err := u.repoGroup.GetUserGroups(ctx, uDB.ID)
+	groups, err := u.repoGroup.OwnerGroups(ctx, uDB.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}

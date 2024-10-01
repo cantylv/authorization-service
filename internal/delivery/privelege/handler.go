@@ -1,13 +1,14 @@
-package role
+package privelege
 
 import (
 	// "github.com/cantylv/authorization-service/internal/usecase/role"
+	"errors"
 	"net/http"
 
 	"github.com/asaskevich/govalidator"
+	ent "github.com/cantylv/authorization-service/internal/entity"
 	"github.com/cantylv/authorization-service/internal/entity/dto"
-	"github.com/cantylv/authorization-service/internal/usecase/role"
-	"github.com/cantylv/authorization-service/internal/usecase/user"
+	"github.com/cantylv/authorization-service/internal/usecase/privelege"
 	f "github.com/cantylv/authorization-service/internal/utils/functions"
 	mc "github.com/cantylv/authorization-service/internal/utils/myconstants"
 	me "github.com/cantylv/authorization-service/internal/utils/myerrors"
@@ -15,41 +16,156 @@ import (
 	"go.uber.org/zap"
 )
 
-type RoleHandlerManager struct {
-	ucUser user.Usecase
-	ucRole role.Usecase
-	logger *zap.Logger
+type PrivelegeHandlerManager struct {
+	ucPrivelege privelege.Usecase
+	logger      *zap.Logger
 }
 
-// NewRoleHandlerManager возвращает менеджер хендлеров, отвечающих за получение прав пользователя на ресурс
-func NewRoleHandlerManager(ucUser user.Usecase, ucRole role.Usecase, logger *zap.Logger) *RoleHandlerManager {
-	return &RoleHandlerManager{
-		ucUser: ucUser,
-		logger: logger,
-		ucRole: ucRole,
+// NewPrivelegeHandlerManager возвращает менеджер хендлеров, отвечающих за получение прав пользователя на ресурс.
+// Права на запуск агента добавляются группе, а пользователь уже наследует от нее права.
+func NewPrivelegeHandlerManager(ucPrivelege privelege.Usecase, logger *zap.Logger) *PrivelegeHandlerManager {
+	return &PrivelegeHandlerManager{
+		ucPrivelege: ucPrivelege,
+		logger:      logger,
 	}
 }
 
-func (h *RoleHandlerManager) CanUserExecute(w http.ResponseWriter, r *http.Request) {
+func (h *PrivelegeHandlerManager) AddAgentToGroup(w http.ResponseWriter, r *http.Request) {
 	requestID, err := f.GetCtxRequestID(r)
 	if err != nil {
 		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
 	}
 	pathVars := mux.Vars(r)
-	processName := pathVars["process_name"]
-	userEmail := pathVars["email"]
-	userAskEmail := pathVars["email_ask"]
-	if !govalidator.IsEmail(userEmail) || !govalidator.IsEmail(userAskEmail) {
+	groupName := pathVars["group_name"]
+	agentName := pathVars["agent_name"]
+	emailAdd := pathVars["email_add"]
+	if !govalidator.IsEmail(emailAdd) {
+		h.logger.Info(me.ErrInvalidEmail.Error(), zap.String(mc.RequestID, requestID))
 		f.Response(w, dto.ResponseError{Error: me.ErrInvalidEmail.Error()}, http.StatusBadRequest)
 		return
 	}
-	isCanExecute, err := h.ucRole.CanExecute(r.Context(), userEmail, processName, userAskEmail)
+	err = h.ucPrivelege.AddAgentToGroup(r.Context(), agentName, groupName, emailAdd)
 	if err != nil {
+		if errors.Is(err, me.ErrAgentNotExist) ||
+			errors.Is(err, me.ErrGroupNotExist) ||
+			errors.Is(err, me.ErrGroupAgentAlreadyExist) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, me.ErrOnlyRootCanAddAgent) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusForbidden)
+			return
+		}
+		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
 		f.Response(w, dto.ResponseError{Error: me.ErrInternal.Error()}, http.StatusInternalServerError)
 		return
 	}
-	if !isCanExecute {
 
+	f.Response(w, dto.ResponseDetail{Detail: "agent was succesful added to group"}, http.StatusOK)
+}
+
+func (h *PrivelegeHandlerManager) DeleteAgentFromGroup(w http.ResponseWriter, r *http.Request) {
+	requestID, err := f.GetCtxRequestID(r)
+	if err != nil {
+		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
 	}
-	f.Response(w, dto.ResponseDetail{Detail: "user has rules to run the task"}, http.StatusOK)
+	pathVars := mux.Vars(r)
+	groupName := pathVars["group_name"]
+	agentName := pathVars["agent_name"]
+	emailDelete := pathVars["email_delete"]
+	if !govalidator.IsEmail(emailDelete) {
+		h.logger.Info(me.ErrInvalidEmail.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInvalidEmail.Error()}, http.StatusBadRequest)
+		return
+	}
+	err = h.ucPrivelege.DeleteAgentFromGroup(r.Context(), agentName, groupName, emailDelete)
+	if err != nil {
+		if errors.Is(err, me.ErrAgentNotExist) ||
+			errors.Is(err, me.ErrGroupNotExist) ||
+			errors.Is(err, me.ErrGroupAgentNotExist) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, me.ErrOnlyRootCanDeleteAgent) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusForbidden)
+			return
+		}
+		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInternal.Error()}, http.StatusInternalServerError)
+		return
+	}
+
+	f.Response(w, dto.ResponseDetail{Detail: "agent was succesful deleted from group"}, http.StatusOK)
+}
+
+func (h *PrivelegeHandlerManager) GetGroupAgents(w http.ResponseWriter, r *http.Request) {
+	requestID, err := f.GetCtxRequestID(r)
+	if err != nil {
+		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
+	}
+	pathVars := mux.Vars(r)
+	groupName := pathVars["group_name"]
+	emailAsk := pathVars["email_ask"]
+	if !govalidator.IsEmail(emailAsk) {
+		h.logger.Info(me.ErrInvalidEmail.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInvalidEmail.Error()}, http.StatusBadRequest)
+		return
+	}
+	agents, err := h.ucPrivelege.GetGroupAgents(r.Context(), groupName, emailAsk)
+	if err != nil {
+		if errors.Is(err, me.ErrGroupNotExist) ||
+			errors.Is(err, me.ErrUserNotExist) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, me.ErrUserIsNotOwner) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusForbidden)
+			return
+		}
+		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInternal.Error()}, http.StatusInternalServerError)
+		return
+	}
+	if agents == nil {
+		agents = make([]*ent.Agent, 0)
+	}
+	f.Response(w, agents, http.StatusOK)
+}
+
+func (h *PrivelegeHandlerManager) CanUserExecute(w http.ResponseWriter, r *http.Request) {
+	requestID, err := f.GetCtxRequestID(r)
+	if err != nil {
+		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
+	}
+	pathVars := mux.Vars(r)
+	agentName := pathVars["agent_name"]
+	userEmail := pathVars["email"]
+	if !govalidator.IsEmail(userEmail) {
+		h.logger.Info(me.ErrInvalidEmail.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInvalidEmail.Error()}, http.StatusBadRequest)
+		return
+	}
+	canExecute, err := h.ucPrivelege.CanExecute(r.Context(), userEmail, agentName)
+	if err != nil {
+		if errors.Is(err, me.ErrAgentNotExist) ||
+			errors.Is(err, me.ErrUserNotExist) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInternal.Error()}, http.StatusInternalServerError)
+		return
+	}
+	if canExecute {
+		f.Response(w, map[string]bool{"can_execute": true}, http.StatusOK)
+		return
+	}
+	f.Response(w, map[string]bool{"can_execute": false}, http.StatusOK)
 }

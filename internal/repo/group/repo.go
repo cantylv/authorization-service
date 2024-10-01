@@ -17,7 +17,7 @@ type Repo interface {
 	GetBid(ctx context.Context, userID, groupName string) (*dto.Bid, error)
 	AddUserToGroup(ctx context.Context, userID string, groupID int) error
 	ApproveGroupCreation(ctx context.Context, ownerID, rootUserID, groupName string) (*ent.Group, error)
-	RejectGroupCreation(ctx context.Context, groupName, userID string) (*dto.Bid, error)
+	RejectGroupCreation(ctx context.Context, bidID int) (*dto.Bid, error)
 	MakeBidGroupCreation(ctx context.Context, ownerID, groupName string) (*dto.Bid, error)
 	IsParticipantOfGroup(ctx context.Context, userID string, groupID int) (bool, error)
 	IsOwnerOfGroup(ctx context.Context, userID, groupName string) (bool, error)
@@ -61,7 +61,7 @@ var (
 	sqlRowRejectBid = `
 		UPDATE bid 
 		SET status = 'rejected' 
-		WHERE group_name = $1 AND user_id = $2
+		WHERE id = $1
 		RETURNING id, group_name, user_id, status
 	`
 	sqlRowGetOwnerGroups = `
@@ -350,8 +350,8 @@ func (r *RepoLayer) GetParticipants(ctx context.Context, groupID int) ([]*ent.Us
 	return us, nil
 }
 
-func (r *RepoLayer) RejectGroupCreation(ctx context.Context, groupName, userID string) (*dto.Bid, error) {
-	row := r.dbConn.QueryRow(ctx, sqlRowRejectBid, groupName, userID)
+func (r *RepoLayer) RejectGroupCreation(ctx context.Context, bidID int) (*dto.Bid, error) {
+	row := r.dbConn.QueryRow(ctx, sqlRowRejectBid, bidID)
 	var g dto.Bid
 	err := row.Scan(&g.ID, &g.GroupName, &g.UserId, &g.Status)
 	if err != nil {
