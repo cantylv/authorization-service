@@ -157,7 +157,7 @@ func (h *PrivelegeHandlerManager) AddAgentToUser(w http.ResponseWriter, r *http.
 		f.Response(w, dto.ResponseError{Error: me.ErrInvalidEmail.Error()}, http.StatusBadRequest)
 		return
 	}
-	err = h.ucPrivelege.AddAgentToGroup(r.Context(), agentName, email, emailAdd)
+	err = h.ucPrivelege.AddAgentToUser(r.Context(), agentName, email, emailAdd)
 	if err != nil {
 		if errors.Is(err, me.ErrAgentNotExist) ||
 			errors.Is(err, me.ErrUserNotExist) ||

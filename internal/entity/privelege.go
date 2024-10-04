@@ -7,9 +7,9 @@ type GroupPrivelege struct {
 }
 
 type UserPrivelege struct {
-	ID      int `json:"id"`
-	UserID  int `json:"user_id"`
-	AgentID int `json:"agent_id"`
+	ID      int    `json:"id"`
+	UserID  string `json:"user_id"`
+	AgentID int    `json:"agent_id"`
 }
 
 type Agent struct {

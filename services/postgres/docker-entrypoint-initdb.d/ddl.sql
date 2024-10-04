@@ -41,7 +41,7 @@ CREATE TABLE bid (
 );
 
 -- Эта таблица содержит доступ групп к агентам
-CREATE TABLE group_privelege (
+CREATE TABLE privelege_group (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     agent_id INT REFERENCES agent(id) ON DELETE CASCADE,
     group_id INT REFERENCES "group"(id) ON DELETE CASCADE,
@@ -49,10 +49,10 @@ CREATE TABLE group_privelege (
 );
 
 -- Эта таблица содержит доступ пользователей к агентам
-CREATE TABLE user_privelege (
+CREATE TABLE privelege_user (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     agent_id INT REFERENCES agent(id) ON DELETE CASCADE,
-    user_id INT REFERENCES "user"(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES "user"(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
@@ -80,8 +80,12 @@ ALTER COLUMN last_name SET NOT NULL,
 ALTER COLUMN created_at SET NOT NULL,
 ALTER COLUMN updated_at SET NOT NULL;
 
--- table 'privelege'
-ALTER TABLE privelege
+-- table 'privelege_group'
+ALTER TABLE privelege_group
+ALTER COLUMN created_at SET NOT NULL;
+
+-- table 'privelege_user'
+ALTER TABLE privelege_user
 ALTER COLUMN created_at SET NOT NULL;
 
 -- table 'group'
