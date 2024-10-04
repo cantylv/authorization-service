@@ -129,8 +129,9 @@ func (h *GroupHandlerManager) KickOutUser(w http.ResponseWriter, r *http.Request
 	}
 	groupName, err = h.usecaseGroup.KickUserFromGroup(r.Context(), userEmail, kickUserEmail, groupName)
 	if err != nil {
-		if errors.Is(err, me.ErrUserNotExist) ||
-			errors.Is(err, me.ErrGroupNotExist) ||
+		if errors.Is(err, me.ErrGroupNotExist) ||
+			errors.Is(err, me.ErrDeleteRootFromGroup) ||
+			errors.Is(err, me.ErrUserNotExist) ||
 			errors.Is(err, me.ErrUserIsNotInGroup) ||
 			errors.Is(err, me.ErrOnlyOwnerCanDeleteUserFromGroup) ||
 			errors.Is(err, me.ErrOwnerCantExitFromGroup) {

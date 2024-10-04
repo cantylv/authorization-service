@@ -5,6 +5,7 @@ import (
 
 	"github.com/cantylv/authorization-service/internal/delivery/route/agent"
 	"github.com/cantylv/authorization-service/internal/delivery/route/group"
+	"github.com/cantylv/authorization-service/internal/delivery/route/ping"
 	"github.com/cantylv/authorization-service/internal/delivery/route/privelege"
 	"github.com/cantylv/authorization-service/internal/delivery/route/user"
 	"github.com/cantylv/authorization-service/internal/middlewares"
@@ -15,10 +16,12 @@ import (
 
 // InitHTTPHandlers инициализирует обработчики запросов, а также добавляет цепочку middlewares в обработку запроса.
 func InitHTTPHandlers(r *mux.Router, postgresClient *pgx.Conn, logger *zap.Logger) http.Handler {
-	user.InitHandlers(r, postgresClient, logger)
-	group.InitHandlers(r, postgresClient, logger)
-	agent.InitHandlers(r, postgresClient, logger)
-	privelege.InitHandlers(r, postgresClient, logger)
-	h := middlewares.Init(r, logger)
+	s := r.PathPrefix("/api/v1").Subrouter()
+	ping.InitHandlers(s)
+	agent.InitHandlers(s, postgresClient, logger)
+	user.InitHandlers(s, postgresClient, logger)
+	group.InitHandlers(s, postgresClient, logger)
+	privelege.InitHandlers(s, postgresClient, logger)
+	h := middlewares.Init(s, logger)
 	return h
 }

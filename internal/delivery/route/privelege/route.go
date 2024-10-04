@@ -22,8 +22,8 @@ func InitHandlers(r *mux.Router, postgresClient *pgx.Conn, logger *zap.Logger) {
 	repoGroup := rGroup.NewRepoLayer(postgresClient)
 	usecasePrivelege := uPrivelege.NewUsecaseLayer(repoAgent, repoPrivelege, repoUser, repoGroup)
 	privelegeHandlerManager := dPrivelege.NewPrivelegeHandlerManager(usecasePrivelege, logger)
-	r.HandleFunc("/api/v1/groups/{group_name}/priveleges/new/agents/{agent_name}/who_adds/{email_add}", privelegeHandlerManager.AddAgentToGroup).Methods("POST")                 // добавляет группе нового агента
-	r.HandleFunc("/api/v1/groups/{group_name}/priveleges/delete/agents/{agent_name}/who_deletes/{email_delete}", privelegeHandlerManager.DeleteAgentFromGroup).Methods("DELETE") // удаляет у группы агента
-	r.HandleFunc("/api/v1/groups/{group_name}/priveleges/who_asks/{email_ask}", privelegeHandlerManager.GetGroupAgents).Methods("GET")                                           // возвращает список агентов группы
-	r.HandleFunc("/api/v1/users/{email}/check_access/agents/{agent_name}", privelegeHandlerManager.CanUserExecute).Methods("GET")                                                // проверяет, можно ли пользователю пользоваться агентом
+	r.HandleFunc("/groups/{group_name}/priveleges/new/agents/{agent_name}/who_adds/{email_add}", privelegeHandlerManager.AddAgentToGroup).Methods("POST")                 // добавляет группе нового агента
+	r.HandleFunc("/groups/{group_name}/priveleges/delete/agents/{agent_name}/who_deletes/{email_delete}", privelegeHandlerManager.DeleteAgentFromGroup).Methods("DELETE") // удаляет у группы агента
+	r.HandleFunc("/groups/{group_name}/priveleges/who_asks/{email_ask}", privelegeHandlerManager.GetGroupAgents).Methods("GET")                                           // возвращает список агентов группы
+	r.HandleFunc("/users/{email}/check_access/agents/{agent_name}", privelegeHandlerManager.CanUserExecute).Methods("GET")                                                // проверяет, можно ли пользователю пользоваться агентом
 }

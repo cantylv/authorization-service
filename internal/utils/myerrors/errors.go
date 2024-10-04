@@ -23,7 +23,7 @@ var (
 	ErrUserIsAlreadyOwner              = errors.New("user is already an owner")
 	ErrUserIsNotOwner                  = errors.New("user is not an owner")
 	ErrUserIsResponsible               = errors.New("user is responsible for group/groups, so root user need to appoint new owner")
-	ErrDeleteRootFromGroup             = errors.New("user doesn't have enough rights to delere root user from group")
+	ErrDeleteRootFromGroup             = errors.New("user doesn't have enough rights to delete root user from group")
 	// DATABASE
 	ErrNoRowsAffected         = errors.New("no rows were affected")
 	ErrUserNotExist           = errors.New("user is not exist")
