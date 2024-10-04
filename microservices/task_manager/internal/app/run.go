@@ -19,7 +19,7 @@ func Run(logger *zap.Logger) {
 	handler := route.InitHttpHandlers(r, logger)
 	srv := &http.Server{
 		Handler:      handler,
-		Addr:         viper.GetString("task_managerserver.address"),
+		Addr:         viper.GetString("task_manager.address"),
 		WriteTimeout: viper.GetDuration("task_manager.write_timeout"),
 		ReadTimeout:  viper.GetDuration("task_manager.read_timeout"),
 		IdleTimeout:  viper.GetDuration("task_manager.idle_timeout"),
