@@ -580,6 +580,102 @@ func (p *PrivelegeManager) GetGroupAgents(groupName, emailAsk string) ([]Agent, 
 	}
 }
 
+// AddAgentToUser создает связь между агентом и пользователем
+func (p *PrivelegeManager) AddAgentToUser(email, agentName, emailAdd string) (ResponseDetail, error) {
+	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/priveleges/new/agents/%s/who_adds/%s",
+		p.ConnectionLine, email, agentName, emailAdd)
+	respRequest, err := http.Post(urlRequest, "application/json", nil)
+	if err != nil {
+		return ResponseDetail{}, err
+	}
+	switch respRequest.StatusCode {
+	case http.StatusOK:
+		var resp ResponseDetail
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return ResponseDetail{}, err
+		}
+		return resp, nil
+
+	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
+		var resp ResponseError
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return ResponseDetail{}, err
+		}
+		return ResponseDetail{}, fmt.Errorf("error: %s", resp.Error)
+
+	default:
+		return ResponseDetail{}, fmt.Errorf("unexpected error")
+	}
+}
+
+// DeleteAgentFromUser разрывает связь между агентом и пользователем
+func (p *PrivelegeManager) DeleteAgentFromUser(email, agentName, emailDelete string) (ResponseDetail, error) {
+	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/priveleges/delete/agents/%s/who_deletes/%s",
+		p.ConnectionLine, email, agentName, emailDelete)
+	req, err := http.NewRequest("PUT", urlRequest, nil)
+	if err != nil {
+		return ResponseDetail{}, err
+	}
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return ResponseDetail{}, err
+	}
+	switch respRequest.StatusCode {
+	case http.StatusOK:
+		var resp ResponseDetail
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return ResponseDetail{}, err
+		}
+		return resp, nil
+
+	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
+		var resp ResponseError
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return ResponseDetail{}, err
+		}
+		return ResponseDetail{}, fmt.Errorf("error: %s", resp.Error)
+
+	default:
+		return ResponseDetail{}, fmt.Errorf("unexpected error")
+	}
+}
+
+// GetGroupAgents возвращает список агентов какойлибо группы
+func (p *PrivelegeManager) GetUserAgents(email, emailAsk string) ([]Agent, error) {
+	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/priveleges/who_asks/%s",
+		p.ConnectionLine, email, emailAsk)
+	respRequest, err := http.Get(urlRequest)
+	if err != nil {
+		return nil, err
+	}
+	switch respRequest.StatusCode {
+	case http.StatusOK:
+		var agents []Agent
+		err = json.NewDecoder(respRequest.Body).Decode(&agents)
+		if err != nil {
+			return nil, err
+		}
+		return agents, nil
+
+	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
+		var resp ResponseError
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("error: %s", resp.Error)
+
+	default:
+		return nil, fmt.Errorf("unexpected error")
+	}
+}
+
 // CanUserExecute проверяет, может ли пользователь выполнить процесс на выбранном агенте
 func (p *PrivelegeManager) CanUserExecute(email, agentName string) (bool, error) {
 	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/check_access/agents/%s",
