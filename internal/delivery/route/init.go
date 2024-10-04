@@ -22,6 +22,5 @@ func InitHTTPHandlers(r *mux.Router, postgresClient *pgx.Conn, logger *zap.Logge
 	user.InitHandlers(s, postgresClient, logger)
 	group.InitHandlers(s, postgresClient, logger)
 	privelege.InitHandlers(s, postgresClient, logger)
-	h := middlewares.Init(s, logger)
-	return h
+	return middlewares.Init(s, logger)
 }

@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/cantylv/authorization-service/internal/entity/dto"
-	"github.com/cantylv/authorization-service/internal/utils/functions"
+	f "github.com/cantylv/authorization-service/internal/utils/functions"
+	me "github.com/cantylv/authorization-service/internal/utils/myerrors"
 	"github.com/jackc/pgx/v5"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -56,9 +57,7 @@ func Init(logger *zap.Logger) *pgx.Conn {
 	return conn
 }
 
-func isExistRootUser(conn *pgx.Conn) (bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func isExistRootUser(ctx context.Context, conn *pgx.Conn) (bool, error) {
 	row := conn.QueryRow(ctx, `SELECT 1 FROM "user" WHERE email=$1`, viper.GetString("root_email"))
 	var exist int
 	err := row.Scan(&exist)
@@ -72,7 +71,9 @@ func isExistRootUser(conn *pgx.Conn) (bool, error) {
 }
 
 func createRootUser(conn *pgx.Conn) error {
-	isExist, err := isExistRootUser(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	isExist, err := isExistRootUser(ctx, conn)
 	if err != nil {
 		return err
 	}
@@ -90,12 +91,12 @@ func createRootUser(conn *pgx.Conn) error {
 	if err != nil {
 		return err
 	}
-	hashedRootPassword, err := functions.GetHashedPassword(viper.GetString("root_password"))
+	hashedRootPassword, err := f.GetHashedPassword(viper.GetString("root_password"))
 	if err != nil {
 		return err
 	}
 	rootUser.Password = hashedRootPassword
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	row := conn.QueryRow(ctx,
 		`INSERT INTO "user"(email, password, first_name, last_name) VALUES ($1, $2, $3, $4) RETURNING id`,
@@ -114,6 +115,13 @@ func createRootUser(conn *pgx.Conn) error {
 	if err != nil {
 		return err
 	}
+	// добавляем группе пользователей агента микросервиса 'privelege'
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err = initUsersGroupAgents(ctx, conn, groupID)
+	if err != nil {
+		return err
+	}
 	// добавляем root пользователя в группу обычных пользователей
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -123,6 +131,23 @@ func createRootUser(conn *pgx.Conn) error {
 	}
 	if tag.RowsAffected() == 0 {
 		return errors.New("root user was not added to group 'users'")
+	}
+	return nil
+}
+
+func initUsersGroupAgents(ctx context.Context, conn *pgx.Conn, groupID int) error {
+	row := conn.QueryRow(ctx, `SELECT id FROM agent WHERE name='privelege'`)
+	var agentID int
+	err := row.Scan(&agentID)
+	if err != nil {
+		return err
+	}
+	tag, err := conn.Exec(ctx, `INSERT INTO privelege_group(group_id, agent_id) VALUES ($1, $2)`, groupID, agentID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return me.ErrNoRowsAffected
 	}
 	return nil
 }

@@ -1,0 +1,1 @@
+INSERT INTO agent(name) VALUES('privelege');
