@@ -1,8 +1,14 @@
 package entity
 
-type Privelege struct {
+type GroupPrivelege struct {
 	ID      int `json:"id"`
 	GroupID int `json:"group_id"`
+	AgentID int `json:"agent_id"`
+}
+
+type UserPrivelege struct {
+	ID      int `json:"id"`
+	UserID  int `json:"user_id"`
 	AgentID int `json:"agent_id"`
 }
 

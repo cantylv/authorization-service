@@ -40,15 +40,23 @@ CREATE TABLE bid (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Эта таблица содержит названия процессов
-CREATE TABLE privelege (
+-- Эта таблица содержит доступ групп к агентам
+CREATE TABLE group_privelege (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     agent_id INT REFERENCES agent(id) ON DELETE CASCADE,
     group_id INT REFERENCES "group"(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Эта таблица содержит доступы пользователей к группам
+-- Эта таблица содержит доступ пользователей к агентам
+CREATE TABLE user_privelege (
+    id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    agent_id INT REFERENCES agent(id) ON DELETE CASCADE,
+    user_id INT REFERENCES "user"(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Эта таблица содержит принадлежность пользователей к группам
 CREATE TABLE participation (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id UUID REFERENCES "user"(id) ON DELETE CASCADE,

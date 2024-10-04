@@ -14,6 +14,7 @@ type Repo interface {
 	Create(ctx context.Context, name string) (*ent.Agent, error)
 	Delete(ctx context.Context, id int) error
 	IsGroupAgent(ctx context.Context, groupID, agentID int) (bool, error)
+	IsUserAgent(ctx context.Context, userID string, agentID int) (bool, error)
 }
 
 var _ Repo = (*RepoLayer)(nil)
@@ -77,9 +78,19 @@ func (r *RepoLayer) Delete(ctx context.Context, id int) error {
 }
 
 func (r *RepoLayer) IsGroupAgent(ctx context.Context, groupID, agentID int) (bool, error) {
-	row := r.dbConn.QueryRow(ctx, `SELECT 1 FROM privelege WHERE group_id=$1 AND agent_id=$2`, groupID, agentID)
+	row := r.dbConn.QueryRow(ctx, `SELECT 1 FROM privelege_group WHERE group_id=$1 AND agent_id=$2`, groupID, agentID)
 	var isGroupAgent int
 	err := row.Scan(&isGroupAgent)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *RepoLayer) IsUserAgent(ctx context.Context, userID string, agentID int) (bool, error) {
+	row := r.dbConn.QueryRow(ctx, `SELECT 1 FROM privelege_user WHERE user_id=$1 AND agent_id=$2`, userID, agentID)
+	var isUserAgent int
+	err := row.Scan(&isUserAgent)
 	if err != nil {
 		return false, err
 	}

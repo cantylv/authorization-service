@@ -16,15 +16,17 @@ import (
 
 type Usecase interface {
 	AddAgentToGroup(ctx context.Context, agentName, groupName, emailAdd string) error
+	AddAgentToUser(ctx context.Context, agentName, email, emailAdd string) error
 	DeleteAgentFromGroup(ctx context.Context, agentName, groupName, emailDelete string) error
+	DeleteAgentFromUser(ctx context.Context, agentName, email, emailDelete string) error
 	GetGroupAgents(ctx context.Context, groupName, emailAsk string) ([]*ent.Agent, error)
+	GetUserAgents(ctx context.Context, email string, emailAsk string) ([]*ent.Agent, error)
 	CanExecute(ctx context.Context, userEmail, agentName string) (bool, error)
 }
 
 var _ Usecase = (*UsecaseLayer)(nil)
 
 type UsecaseLayer struct {
-	false,
 	repoAgent agent.Repo
 	repoPrivelege privelege.Repo
 	repoUser      user.Repo
@@ -70,7 +72,45 @@ func (u *UsecaseLayer) AddAgentToGroup(ctx context.Context, agentName, groupName
 		return me.ErrGroupAgentAlreadyExist
 	}
 	// создаем запись
-	_, err = u.repoPrivelege.Create(ctx, g.ID, a.ID)
+	_, err = u.repoPrivelege.CreateGroupAgent(ctx, g.ID, a.ID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (u *UsecaseLayer) AddAgentToUser(ctx context.Context, agentName, email, emailAdd string) error {
+	// только root может добавить агента к пользователю
+	if emailAdd != viper.GetString("root_email") {
+		return me.ErrOnlyRootCanAddAgent
+	}
+	// проверим, есть ли agent с таким именем
+	a, err := u.repoAgent.Read(ctx, agentName)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return me.ErrAgentNotExist
+		}
+		return err
+	}
+	// проверим, есть ли пользователь с такой почтай
+	usr, err := u.repoUser.GetByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return me.ErrUserNotExist
+		}
+		return err
+	}
+	// проверим, что у пользователя еще нет такого агента
+	// проверка идет только по привелегиям пользователя, не затрагивая привелегии групп, в которые он входит
+	isAlreadyUserAgent, err := u.repoAgent.IsUserAgent(ctx, usr.ID, a.ID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if isAlreadyUserAgent {
+		return me.ErrUserAgentAlreadyExist
+	}
+	// добавляет агента к пользовательскиим привелегиям
+	_, err = u.repoPrivelege.CreateUserAgent(ctx, usr.ID, a.ID)
 	if err != nil {
 		return err
 	}
@@ -107,7 +147,44 @@ func (u *UsecaseLayer) DeleteAgentFromGroup(ctx context.Context, agentName, grou
 		return err
 	}
 	// удаляем запись
-	err = u.repoPrivelege.Delete(ctx, g.ID, a.ID)
+	err = u.repoPrivelege.DeleteGroupAgent(ctx, g.ID, a.ID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (u *UsecaseLayer) DeleteAgentFromUser(ctx context.Context, agentName, email, emailDelete string) error {
+	// только root может удалить агента у пользователя
+	if emailDelete != viper.GetString("root_email") {
+		return me.ErrOnlyRootCanDeleteAgent
+	}
+	// проверим, есть ли agent с таким именем
+	a, err := u.repoAgent.Read(ctx, agentName)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return me.ErrAgentNotExist
+		}
+		return err
+	}
+	// проверим, есть ли пользователь с такой почтой
+	usr, err := u.repoUser.GetByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return me.ErrUserNotExist
+		}
+		return err
+	}
+	// проверим, что у группы есть такой агент
+	_, err = u.repoAgent.IsUserAgent(ctx, usr.ID, a.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return me.ErrUserAgentNotExist
+		}
+		return err
+	}
+	// удаляем связь между агентом и пользователем
+	err = u.repoPrivelege.DeleteUserAgent(ctx, usr.ID, a.ID)
 	if err != nil {
 		return err
 	}
@@ -124,7 +201,7 @@ func (u *UsecaseLayer) GetGroupAgents(ctx context.Context, groupName, emailAsk s
 		return nil, err
 	}
 	if emailAsk == viper.GetString("root_email") {
-		return u.repoPrivelege.GetAgents(ctx, g.ID)
+		return u.repoPrivelege.GetGroupAgents(ctx, g.ID)
 	}
 	// проверим, существует ли пользователь
 	uDB, err := u.repoUser.GetByEmail(ctx, emailAsk)
@@ -142,7 +219,63 @@ func (u *UsecaseLayer) GetGroupAgents(ctx context.Context, groupName, emailAsk s
 		}
 		return nil, err
 	}
-	return u.repoPrivelege.GetAgents(ctx, g.ID)
+	return u.repoPrivelege.GetGroupAgents(ctx, g.ID)
+}
+
+// GetUserAgents запрашивать список агентов может только сам пользователь или root.
+func (u *UsecaseLayer) GetUserAgents(ctx context.Context, email string, emailAsk string) ([]*ent.Agent, error) {
+	// проверим, есть ли пользователь с такой почтой
+	uDB, err := u.repoUser.GetByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, me.ErrUserNotExist
+		}
+		return nil, err
+	}
+	if emailAsk != viper.GetString("root_email") && email != emailAsk {
+		return nil, me.ErrGetUserAgents
+	}
+	// схема получения привелегий пользователя
+	// 1) получаем список его групп
+	// 2) суммируем привелегии групп
+	// 3) получаем индивидуальные привелегии пользователя
+	// 4) суммируем индивидуальные привелегии и групповые
+	agentsResult := make(map[int]*ent.Agent)
+	uGroups, err := u.repoGroup.GetUserGroups(ctx, uDB.ID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	// у пользователя нет групп
+	if errors.Is(err, sql.ErrNoRows) {
+		return u.repoPrivelege.GetUserAgents(ctx, uDB.ID)
+	}
+	// суммируем привелегии групп
+	for _, g := range uGroups {
+		agents, err := u.repoPrivelege.GetGroupAgents(ctx, g.ID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return nil, err
+		}
+		for _, a := range agents {
+			agentsResult[a.ID] = a
+		}
+	}
+	// получим индвивидуальные привелегии пользователя
+	agents, err := u.repoPrivelege.GetUserAgents(ctx, uDB.ID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	for _, a := range agents {
+		agentsResult[a.ID] = a
+	}
+
+	resAgents := make([]*ent.Agent, 0, len(agentsResult))
+	for _, agentEntity := range agentsResult {
+		resAgents = append(resAgents, agentEntity)
+	}
+	return resAgents, nil
 }
 
 func (u *UsecaseLayer) CanExecute(ctx context.Context, userEmail, agentName string) (bool, error) {
@@ -166,17 +299,13 @@ func (u *UsecaseLayer) CanExecute(ctx context.Context, userEmail, agentName stri
 	// и после для каждой группы получим список доступных агентов
 	// если хоть в одном из них окажется agentName, то пользователь имеет доступ к агенту
 	groups, err := u.repoGroup.GetUserGroups(ctx, uDB.ID)
-	if err != nil {
-		// пользователь не находится в какой-либо группе
-		if errors.Is(err, sql.ErrNoRows) {
-			return false, nil
-		}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return false, err
 	}
-	// ключ - название сервиса, значение - пустая структура, которая не занимает память
+	// ключ - идентификатор агента, значение - пустая структура, которая не занимает память
 	userAvaliableAgents := make(map[string]struct{})
 	for _, g := range groups {
-		as, err := u.repoPrivelege.GetAgents(ctx, g.ID)
+		as, err := u.repoPrivelege.GetGroupAgents(ctx, g.ID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				continue
@@ -187,6 +316,15 @@ func (u *UsecaseLayer) CanExecute(ctx context.Context, userEmail, agentName stri
 			userAvaliableAgents[a.Name] = struct{}{}
 		}
 	}
+	// получим индвивидуальные привелегии пользователя
+	agents, err := u.repoPrivelege.GetUserAgents(ctx, uDB.ID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return false, err
+	}
+	for _, a := range agents {
+		userAvaliableAgents[a.Name] = struct{}{}
+	}
+
 	if _, ok := userAvaliableAgents[agentName]; !ok {
 		return false, nil
 	}

@@ -138,6 +138,128 @@ func (h *PrivelegeHandlerManager) GetGroupAgents(w http.ResponseWriter, r *http.
 	f.Response(w, agents, http.StatusOK)
 }
 
+func (h *PrivelegeHandlerManager) AddAgentToUser(w http.ResponseWriter, r *http.Request) {
+	requestID, err := f.GetCtxRequestID(r)
+	if err != nil {
+		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
+	}
+	pathVars := mux.Vars(r)
+	agentName := pathVars["agent_name"]
+	email := pathVars["email"]
+	if !govalidator.IsEmail(email) {
+		h.logger.Info(me.ErrInvalidEmail.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInvalidEmail.Error()}, http.StatusBadRequest)
+		return
+	}
+	emailAdd := pathVars["email_add"]
+	if !govalidator.IsEmail(emailAdd) {
+		h.logger.Info(me.ErrInvalidEmail.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInvalidEmail.Error()}, http.StatusBadRequest)
+		return
+	}
+	err = h.ucPrivelege.AddAgentToGroup(r.Context(), agentName, email, emailAdd)
+	if err != nil {
+		if errors.Is(err, me.ErrAgentNotExist) ||
+			errors.Is(err, me.ErrUserNotExist) ||
+			errors.Is(err, me.ErrUserAgentAlreadyExist) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, me.ErrOnlyRootCanAddAgent) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusForbidden)
+			return
+		}
+		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInternal.Error()}, http.StatusInternalServerError)
+		return
+	}
+
+	f.Response(w, dto.ResponseDetail{Detail: "agent was succesful added to user"}, http.StatusOK)
+}
+
+func (h *PrivelegeHandlerManager) DeleteAgentFromUser(w http.ResponseWriter, r *http.Request) {
+	requestID, err := f.GetCtxRequestID(r)
+	if err != nil {
+		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
+	}
+	pathVars := mux.Vars(r)
+	agentName := pathVars["agent_name"]
+	email := pathVars["email"]
+	if !govalidator.IsEmail(email) {
+		h.logger.Info(me.ErrInvalidEmail.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInvalidEmail.Error()}, http.StatusBadRequest)
+		return
+	}
+	emailDelete := pathVars["email_delete"]
+	if !govalidator.IsEmail(emailDelete) {
+		h.logger.Info(me.ErrInvalidEmail.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInvalidEmail.Error()}, http.StatusBadRequest)
+		return
+	}
+	err = h.ucPrivelege.DeleteAgentFromUser(r.Context(), agentName, email, emailDelete)
+	if err != nil {
+		if errors.Is(err, me.ErrAgentNotExist) ||
+			errors.Is(err, me.ErrUserNotExist) ||
+			errors.Is(err, me.ErrUserAgentNotExist) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, me.ErrOnlyRootCanDeleteAgent) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusForbidden)
+			return
+		}
+		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInternal.Error()}, http.StatusInternalServerError)
+		return
+	}
+
+	f.Response(w, dto.ResponseDetail{Detail: "agent was succesful deleted from group"}, http.StatusOK)
+}
+
+func (h *PrivelegeHandlerManager) GetUserAgents(w http.ResponseWriter, r *http.Request) {
+	requestID, err := f.GetCtxRequestID(r)
+	if err != nil {
+		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
+	}
+	pathVars := mux.Vars(r)
+	email := pathVars["email"]
+	if !govalidator.IsEmail(email) {
+		h.logger.Info(me.ErrInvalidEmail.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInvalidEmail.Error()}, http.StatusBadRequest)
+		return
+	}
+	emailAsk := pathVars["email_ask"]
+	if !govalidator.IsEmail(emailAsk) {
+		h.logger.Info(me.ErrInvalidEmail.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInvalidEmail.Error()}, http.StatusBadRequest)
+		return
+	}
+	agents, err := h.ucPrivelege.GetUserAgents(r.Context(), email, emailAsk)
+	if err != nil {
+		if errors.Is(err, me.ErrUserNotExist) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, me.ErrGetUserAgents) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusForbidden)
+			return
+		}
+		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
+		f.Response(w, dto.ResponseError{Error: me.ErrInternal.Error()}, http.StatusInternalServerError)
+		return
+	}
+	if agents == nil {
+		agents = make([]*ent.Agent, 0)
+	}
+	f.Response(w, agents, http.StatusOK)
+}
+
 func (h *PrivelegeHandlerManager) CanUserExecute(w http.ResponseWriter, r *http.Request) {
 	requestID, err := f.GetCtxRequestID(r)
 	if err != nil {
