@@ -1,12 +1,11 @@
 package manager
 
 import (
-	"fmt"
 	"net/http"
 
 	f "github.com/cantylv/authorization-service/microservices/task_manager/internal/utils/functions"
 	mc "github.com/cantylv/authorization-service/microservices/task_manager/internal/utils/myconstants"
-	"github.com/gorilla/mux"
+	// "github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
 
@@ -39,6 +38,6 @@ func (h *ManagerHttpRequestsHadler) Load(w http.ResponseWriter, r *http.Request)
 
 	// '/api/v1/archive' - ручка микросервиса архивов
 	// для доступа к микросервису проверки прав не нужно делать предварительный запрос
-	reqPath := mux.Vars(r)["urlPath"]
-	
+	// reqPath := mux.Vars(r)["urlPath"]
+
 }

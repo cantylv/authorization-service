@@ -12,6 +12,7 @@ var (
 	ErrOnlyOwnerCanAddUserToGroup      = errors.New("only owner of group can add user to his group")
 	ErrOnlyOwnerCanDeleteUserFromGroup = errors.New("only owner of group can delete user from his group")
 	ErrOnlyOwnerCanAppointNewOwner     = errors.New("only owner can attain new owner")
+	ErrOnlyRootCanBeOwnerOfUsersGroup  = errors.New("only root can be an owner of users group")
 	ErrOnlyRootCanChangeBidStatus      = errors.New("only root user can approve or reject bid")
 	ErrOnlyRootCanAddAgent             = errors.New("only root user can add server agent")
 	ErrOnlyRootCanDeleteAgent          = errors.New("only root user can delete server agent")

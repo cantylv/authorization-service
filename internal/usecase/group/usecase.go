@@ -310,6 +310,9 @@ func (u *UsecaseLayer) ChangeOwner(ctx context.Context, userEmail, groupName, us
 	if groupDB.OwnerID == userNewOwner.ID {
 		return nil, me.ErrUserIsAlreadyOwner
 	}
+	if groupName == "users" {
+		return nil, me.ErrOnlyRootCanBeOwnerOfUsersGroup
+	}
 	// root пользователь может менять ответственного любой группы
 	if userChangeOwnerEmail == viper.GetString("root_email") {
 		return u.repoGroup.UpdateOwner(ctx, groupDB.ID, userNewOwner.ID)

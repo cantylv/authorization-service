@@ -239,7 +239,8 @@ func (h *GroupHandlerManager) ChangeOwner(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		if errors.Is(err, me.ErrGroupNotExist) ||
 			errors.Is(err, me.ErrUserNotExist) ||
-			errors.Is(err, me.ErrUserIsAlreadyOwner) {
+			errors.Is(err, me.ErrUserIsAlreadyOwner) ||
+			errors.Is(err, me.ErrOnlyRootCanBeOwnerOfUsersGroup) {
 			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
 			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusBadRequest)
 			return
