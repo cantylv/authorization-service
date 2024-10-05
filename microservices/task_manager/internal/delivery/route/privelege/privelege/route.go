@@ -2,7 +2,7 @@ package privelege
 
 import (
 	"github.com/cantylv/authorization-service/client"
-	"github.com/cantylv/authorization-service/microservices/task_manager/internal/delivery/privelege"
+	"github.com/cantylv/authorization-service/microservices/task_manager/internal/delivery/privelege/privelege"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )

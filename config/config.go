@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/satori/uuid"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -21,18 +20,11 @@ var (
 // readEnvAndSetDefault устанавливает переменные конфигурации viper по умолчанию. Используется для случая,
 // когда файл конфигурации не был найден. Использует переменные окружения для настройки.
 func readEnvAndSetDefault(logger *zap.Logger) {
-	// PROJECT
-	if secretKey := os.Getenv("SECRET_KEY"); secretKey != "" {
-		viper.SetDefault("secret_key", secretKey)
-	} else {
-		viper.SetDefault("secret_key", uuid.NewV4().String())
-	}
-
 	// POSTGRES
-	if port := os.Getenv("POSTGRES_PORT"); port != "" {
+	if port := os.Getenv("P_POSTGRES_PORT"); port != "" {
 		psqlPort, err := strconv.Atoi(port)
 		if err != nil {
-			logger.Info("you've passed incorrect value of env variable 'POSTGRES_PORT', so it will be with default value 5432")
+			logger.Info("you've passed incorrect value of env variable 'P_POSTGRES_PORT', so it will be with default value 5432")
 			viper.SetDefault("postgres.port", 5432)
 		} else {
 			viper.SetDefault("postgres.port", psqlPort)
@@ -41,7 +33,7 @@ func readEnvAndSetDefault(logger *zap.Logger) {
 		viper.SetDefault("postgres.port", 5432)
 	}
 
-	if host := os.Getenv("POSTGRES_CONNECTION_HOST"); host != "" {
+	if host := os.Getenv("P_POSTGRES_CONNECTION_HOST"); host != "" {
 		viper.SetDefault("postgres.connectionHost", host)
 	} else {
 		viper.SetDefault("postgres.connectionHost", "localhost")
@@ -73,16 +65,16 @@ func readEnvAndSetDefault(logger *zap.Logger) {
 
 	viper.SetDefault("postgres.sslmode", "disable")
 	// SERVER
-	if address := os.Getenv("SERVER_ADDRESS"); address != "" {
+	if address := os.Getenv("PS_SERVER_ADDRESS"); address != "" {
 		viper.SetDefault("server.address", address)
 	} else {
-		viper.SetDefault("server.address", "localhost:8000")
+		viper.SetDefault("server.address", "localhost:8010")
 	}
 
-	if writeTimeout := os.Getenv("SERVER_WRITE_TIMEOUT"); writeTimeout != "" {
+	if writeTimeout := os.Getenv("PS_SERVER_WRITE_TIMEOUT"); writeTimeout != "" {
 		timeout, err := time.ParseDuration(writeTimeout)
 		if err != nil {
-			logger.Info("you've passed incorrect value of env variable 'SERVER_WRITE_TIMEOUT', so it will be with default value 5s")
+			logger.Info("you've passed incorrect value of env variable 'PS_SERVER_WRITE_TIMEOUT', so it will be with default value 5s")
 			viper.SetDefault("server.write_timeout", 5*time.Second)
 		} else {
 			viper.SetDefault("server.write_timeout", timeout)
@@ -91,10 +83,10 @@ func readEnvAndSetDefault(logger *zap.Logger) {
 		viper.SetDefault("server.write_timeout", 5*time.Second)
 	}
 
-	if readTimeout := os.Getenv("SERVER_READ_TIMEOUT"); readTimeout != "" {
+	if readTimeout := os.Getenv("PS_SERVER_READ_TIMEOUT"); readTimeout != "" {
 		timeout, err := time.ParseDuration(readTimeout)
 		if err != nil {
-			logger.Info("you've passed incorrect value of env variable 'SERVER_READ_TIMEOUT', so it will be with default value 5s")
+			logger.Info("you've passed incorrect value of env variable 'PS_SERVER_READ_TIMEOUT', so it will be with default value 5s")
 			viper.SetDefault("server.read_timeout", 5*time.Second)
 		} else {
 			viper.SetDefault("server.read_timeout", timeout)
@@ -118,7 +110,7 @@ func readEnvAndSetDefault(logger *zap.Logger) {
 	if shutdownDuration := os.Getenv("SERVER_SHUTDOWN_DURATION"); shutdownDuration != "" {
 		duration, err := time.ParseDuration(shutdownDuration)
 		if err != nil {
-			logger.Info("you've passed incorrect value of env variable 'SERVER_SHUTDOWN_DURATION', so it will be with default value 10s")
+			logger.Info("you've passed incorrect value of env variable 'PS_SERVER_SHUTDOWN_DURATION', so it will be with default value 10s")
 			viper.SetDefault("server.shutdown_duration", 10*time.Second)
 		} else {
 			viper.SetDefault("server.shutdown_duration", duration)

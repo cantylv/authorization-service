@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/cantylv/authorization-service/client"
-	"github.com/cantylv/authorization-service/microservices/task_manager/internal/delivery/user"
+	"github.com/cantylv/authorization-service/microservices/task_manager/internal/delivery/privelege/user"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )

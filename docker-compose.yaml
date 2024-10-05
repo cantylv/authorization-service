@@ -1,20 +1,37 @@
 version: "3.0"
 
 services:
-  postgres:
+# бд, используемая для работы с пользователями и их правами
+  postgres_privelege:
     image: postgres:16.3
     restart: always
-    container_name: postgres
+    container_name: postgres_privelege
     env_file: .env
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DATABASE}
+      - POSTGRES_USER=${P_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${P_POSTGRES_PASSWORD}
+      - POSTGRES_DB=${P_POSTGRES_DATABASE}
     volumes:
-      - ./services/postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
-      # - ./services/postgres/data:/var/lib/postgresql/data
+      - ./services/postgres/privelege/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
+      # - ./services/postgres/privelege/data:/var/lib/postgresql/data
     ports:
-      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+      - ${P_POSTGRES_PORT}:5432
+    networks:
+      - ecosystem
+# бд, используемая для хранения архивов каких-либо записей
+  postgres_archive:
+    image: postgres:16.3
+    restart: always
+    container_name: postgres_archive
+    environment:
+      - POSTGRES_USER=${A_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${A_POSTGRES_PASSWORD}
+      - POSTGRES_DB=${A_POSTGRES_DATABASE}
+    volumes:
+      - ./services/postgres/archive/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
+      # - ./services/postgres/archive/data:/var/lib/postgresql/data
+    ports:
+      - ${A_POSTGRES_PORT}:5432
     networks:
       - ecosystem
   # pgamdin:

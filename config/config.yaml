@@ -3,7 +3,7 @@ postgres:
   password: admin123
   connectionHost: localhost
   port: 5432
-  database_name: auth
+  database_name: privelege
   sslmode: disable
 
 server: 

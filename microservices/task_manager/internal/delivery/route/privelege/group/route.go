@@ -2,7 +2,7 @@ package group
 
 import (
 	"github.com/cantylv/authorization-service/client"
-	"github.com/cantylv/authorization-service/microservices/task_manager/internal/delivery/group"
+	"github.com/cantylv/authorization-service/microservices/task_manager/internal/delivery/privelege/group"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )

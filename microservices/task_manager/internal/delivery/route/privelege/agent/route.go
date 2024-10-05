@@ -2,7 +2,7 @@ package agent
 
 import (
 	"github.com/cantylv/authorization-service/client"
-	"github.com/cantylv/authorization-service/microservices/task_manager/internal/delivery/agent"
+	"github.com/cantylv/authorization-service/microservices/task_manager/internal/delivery/privelege/agent"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
