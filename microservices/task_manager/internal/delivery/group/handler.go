@@ -145,11 +145,11 @@ func (h *GroupProxyManager) ChangeOwner(w http.ResponseWriter, r *http.Request) 
 	groupName := pathVars["group_name"]
 	email := pathVars["email"]
 	emailChangeOwner := pathVars["email_change_owner"]
-	agent, reqStatus := h.privelegeClient.Group.ChangeOwner(groupName, email, emailChangeOwner, &meta)
+	group, reqStatus := h.privelegeClient.Group.ChangeOwner(groupName, email, emailChangeOwner, &meta)
 	if reqStatus.Err != nil {
 		h.logger.Info(reqStatus.Err.Error(), zap.String(mc.RequestID, requestID))
 		f.Response(w, dto.ResponseError{Error: reqStatus.Err.Error()}, reqStatus.StatusCode)
 		return
 	}
-	f.Response(w, agent, reqStatus.StatusCode)
+	f.Response(w, group, reqStatus.StatusCode)
 }

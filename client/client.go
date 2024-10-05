@@ -610,7 +610,7 @@ func (p *PrivelegeManager) AddAgentToGroup(groupName, agentName, emailAdd string
 		if err != nil {
 			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return &resp, nil
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
 		var resp ResponseError
@@ -650,7 +650,7 @@ func (p *PrivelegeManager) DeleteAgentFromGroup(groupName, agentName, emailDelet
 		if err != nil {
 			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return &resp, nil
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
 		var resp ResponseError
@@ -686,12 +686,12 @@ func (p *PrivelegeManager) GetGroupAgents(groupName, emailAsk string, meta *Requ
 
 	switch respRequest.StatusCode {
 	case http.StatusOK:
-		var agents []Agent
-		err = json.NewDecoder(respRequest.Body).Decode(&agents)
+		var resp []Agent
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
 			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return agents, nil
+		return resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
 		var resp ResponseError
@@ -731,7 +731,7 @@ func (p *PrivelegeManager) AddAgentToUser(email, agentName, emailAdd string, met
 		if err != nil {
 			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return &resp, nil
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
 		var resp ResponseError
@@ -771,7 +771,7 @@ func (p *PrivelegeManager) DeleteAgentFromUser(email, agentName, emailDelete str
 		if err != nil {
 			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return &resp, nil
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
 		var resp ResponseError
@@ -806,12 +806,12 @@ func (p *PrivelegeManager) GetUserAgents(email, emailAsk string, meta *RequestMe
 
 	switch respRequest.StatusCode {
 	case http.StatusOK:
-		var agents []Agent
-		err = json.NewDecoder(respRequest.Body).Decode(&agents)
+		var resp []Agent
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
 			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return agents, nil
+		return resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
 		var resp ResponseError
@@ -830,7 +830,7 @@ func (p *PrivelegeManager) GetUserAgents(email, emailAsk string, meta *RequestMe
 func (p *PrivelegeManager) CanUserExecute(email, agentName string, meta *RequestMeta) (bool, *RequestStatus) {
 	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/check_access/agents/%s",
 		p.ConnectionLine, email, agentName)
-	req, err := http.NewRequest("DELETE", urlRequest, nil)
+	req, err := http.NewRequest("GET", urlRequest, nil)
 	if err != nil {
 		return false, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
@@ -851,7 +851,7 @@ func (p *PrivelegeManager) CanUserExecute(email, agentName string, meta *Request
 		if err != nil {
 			return false, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return data["can_execute"], nil
+		return data["can_execute"], newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusInternalServerError:
 		var resp ResponseError
