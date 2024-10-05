@@ -47,3 +47,20 @@ type Bid struct {
 	UserId    string `json:"user_id"`
 	Status    string `json:"status"`
 }
+
+type RequestMeta struct {
+	UserAgent string
+	RealIp    string
+}
+
+type RequestStatus struct {
+	Err        error
+	StatusCode int
+}
+
+func newRequestStatus(err error, status int) *RequestStatus {
+	return &RequestStatus{
+		Err:        err,
+		StatusCode: status,
+	}
+}

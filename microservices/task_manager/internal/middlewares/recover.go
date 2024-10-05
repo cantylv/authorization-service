@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/cantylv/authorization-service/internal/entity/dto"
-	f "github.com/cantylv/authorization-service/internal/utils/functions"
-	e "github.com/cantylv/authorization-service/internal/utils/myerrors"
+	"github.com/cantylv/authorization-service/microservices/task_manager/internal/entity/dto"
+	f "github.com/cantylv/authorization-service/microservices/task_manager/internal/utils/functions"
+	me "github.com/cantylv/authorization-service/microservices/task_manager/internal/utils/myerrors"
 	"go.uber.org/zap"
 )
 
@@ -17,7 +17,7 @@ func Recover(h http.Handler, logger *zap.Logger) http.Handler {
 		defer func() {
 			if err := recover(); err != nil {
 				logger.Error(fmt.Sprintf("error while handling request: %v", err))
-				f.Response(w, dto.ResponseError{Error: e.ErrInternal.Error()}, http.StatusInternalServerError)
+				f.Response(w, dto.ResponseError{Error: me.ErrInternal.Error()}, http.StatusInternalServerError)
 				return
 			}
 		}()

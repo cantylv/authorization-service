@@ -3,10 +3,21 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
-	"github.com/pkg/errors"
+	"go.uber.org/zap"
+)
+
+const (
+	XRealIP   = "X-Real-IP"
+	UserAgent = "User-Agent"
+)
+
+var (
+	ErrInternal = errors.New("internal server error, please try again later")
 )
 
 type ClientOpts struct {
@@ -33,7 +44,7 @@ type Client struct {
 }
 
 // NewClient создает нового клиента для соединения с микросервисом
-func NewClient(opts *ClientOpts) (*Client, error) {
+func NewClient(opts *ClientOpts) *Client {
 	schema := "http"
 	if opts.UseSsl {
 		schema = "https"
@@ -45,7 +56,24 @@ func NewClient(opts *ClientOpts) (*Client, error) {
 		User:           UserManager{ConnectionLine: connectionLine},
 		Group:          GroupManager{ConnectionLine: connectionLine},
 		Privelege:      PrivelegeManager{ConnectionLine: connectionLine},
-	}, nil
+	}
+}
+
+func (c *Client) CheckConnection() {
+	logger := zap.Must(zap.NewProduction())
+	i := 0
+	for ; i < 3; i++ {
+		if err := c.Ping(); err == nil {
+			break
+		}
+		logger.Warn("error while connecting to microservice 'privelege'")
+		if i < 2 {
+			time.Sleep(2 * time.Second)
+		}
+	}
+	if i == 3 {
+		logger.Fatal("failed to connect to microservice 'privelege'")
+	}
 }
 
 // Ping проверяет, отвечает ли сервер. В случае успеха должен вернуть статус 200;
@@ -53,10 +81,10 @@ func (c *Client) Ping() error {
 	urlRequest := fmt.Sprintf("%s/api/v1/ping", c.ConnectionLine)
 	resp, err := http.Get(urlRequest)
 	if err != nil {
-		return errors.Wrapf(err, "server is not respond at the address %s", c.ConnectionLine)
+		return fmt.Errorf("server is not respond at the address %s", c.ConnectionLine)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return errors.New("server error")
+		return ErrInternal
 	}
 	return nil
 }
@@ -67,12 +95,21 @@ type AgentManager struct {
 }
 
 // Create создает агента
-func (a *AgentManager) Create(agentName, emailCreate string) (Agent, error) {
+func (a *AgentManager) Create(agentName, emailCreate string, meta *RequestMeta) (*Agent, *RequestStatus) {
 	urlRequest := fmt.Sprintf("%s/api/v1/agents/%s/who_creates/%s",
 		a.ConnectionLine, agentName, emailCreate)
-	respRequest, err := http.Post(urlRequest, "application/json", nil)
+	req, err := http.NewRequest("POST", urlRequest, nil)
 	if err != nil {
-		return Agent{}, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 	defer respRequest.Body.Close()
 
@@ -81,36 +118,38 @@ func (a *AgentManager) Create(agentName, emailCreate string) (Agent, error) {
 		var resp Agent
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return Agent{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return resp, nil
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
 		var resp ResponseError
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return Agent{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return Agent{}, fmt.Errorf("error: %s", resp.Error)
-
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
 	default:
-		return Agent{}, fmt.Errorf("unexpected error")
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 }
 
 // Delete удаляет агента
-func (a *AgentManager) Delete(agentName, emailDelete string) (ResponseDetail, error) {
+func (a *AgentManager) Delete(agentName, emailDelete string, meta *RequestMeta) (*ResponseDetail, *RequestStatus) {
 	urlRequest := fmt.Sprintf("%s/api/v1/agents/%s/who_deletes/%s",
 		a.ConnectionLine, agentName, emailDelete)
 	req, err := http.NewRequest("DELETE", urlRequest, nil)
 	if err != nil {
-		return ResponseDetail{}, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
+
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
 
 	client := &http.Client{}
 	respRequest, err := client.Do(req)
 	if err != nil {
-		return ResponseDetail{}, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 	defer respRequest.Body.Close()
 
@@ -119,29 +158,37 @@ func (a *AgentManager) Delete(agentName, emailDelete string) (ResponseDetail, er
 		var resp ResponseDetail
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return ResponseDetail{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return resp, nil
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
 		var resp ResponseError
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return ResponseDetail{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return ResponseDetail{}, fmt.Errorf("error: %s", resp.Error)
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
 
 	default:
-		return ResponseDetail{}, fmt.Errorf("unexpected error")
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 }
 
 // GetAll возвращает всех агентов в системе
-func (a *AgentManager) GetAll(emailRead string) ([]Agent, error) {
+func (a *AgentManager) GetAll(emailRead string, meta *RequestMeta) ([]Agent, *RequestStatus) {
 	urlRequest := fmt.Sprintf("%s/api/v1/agents/who_reads/%s", a.ConnectionLine, emailRead)
-	respRequest, err := http.Get(urlRequest)
+	req, err := http.NewRequest("GET", urlRequest, nil)
 	if err != nil {
-		return nil, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 	defer respRequest.Body.Close()
 
@@ -150,132 +197,20 @@ func (a *AgentManager) GetAll(emailRead string) ([]Agent, error) {
 		var resp []Agent
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return nil, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return resp, nil
+		return resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
 		var resp ResponseError
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return nil, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return nil, fmt.Errorf("error: %s", resp.Error)
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
 
 	default:
-		return nil, fmt.Errorf("unexpected error")
-	}
-}
-
-// //////// USER //////////
-type UserManager struct {
-	ConnectionLine string
-}
-
-// Create создает пользователя
-func (u *UserManager) Create(email, password, firstName, lastName string) (UserWithoutPassword, error) {
-	urlRequest := fmt.Sprintf("%s/api/v1/users", u.ConnectionLine)
-	body := CreateData{
-		Email:     email,
-		Password:  password,
-		FirstName: firstName,
-		LastName:  lastName,
-	}
-	bodyEncoded, err := json.Marshal(body)
-	if err != nil {
-		return UserWithoutPassword{}, errors.Wrapf(err, "error while marshalling data")
-	}
-	respRequest, err := http.Post(urlRequest, "application/json", bytes.NewBuffer(bodyEncoded))
-	if err != nil {
-		return UserWithoutPassword{}, err
-	}
-
-	switch respRequest.StatusCode {
-	case http.StatusOK:
-		var resp UserWithoutPassword
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return UserWithoutPassword{}, err
-		}
-		return resp, nil
-
-	case http.StatusBadRequest, http.StatusInternalServerError:
-		var resp ResponseError
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return UserWithoutPassword{}, err
-		}
-		return UserWithoutPassword{}, fmt.Errorf("error: %s", resp.Error)
-
-	default:
-		return UserWithoutPassword{}, fmt.Errorf("unexpected error")
-	}
-}
-
-// Get возвращает пользователя
-func (u *UserManager) Get(email string) (UserWithoutPassword, error) {
-	urlRequest := fmt.Sprintf("%s/api/v1/users/%s", u.ConnectionLine, email)
-	respRequest, err := http.Get(urlRequest)
-	if err != nil {
-		return UserWithoutPassword{}, err
-	}
-
-	switch respRequest.StatusCode {
-	case http.StatusOK:
-		var resp UserWithoutPassword
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return UserWithoutPassword{}, err
-		}
-		return resp, nil
-
-	case http.StatusBadRequest, http.StatusInternalServerError:
-		var resp ResponseError
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return UserWithoutPassword{}, err
-		}
-		return UserWithoutPassword{}, fmt.Errorf("error: %s", resp.Error)
-
-	default:
-		return UserWithoutPassword{}, fmt.Errorf("unexpected error")
-	}
-}
-
-// Delete удаляет пользователя
-func (a *UserManager) Delete(email, emailDelete string) (ResponseDetail, error) {
-	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/who_deletes/%s", a.ConnectionLine, email, emailDelete)
-	req, err := http.NewRequest("DELETE", urlRequest, nil)
-	if err != nil {
-		return ResponseDetail{}, err
-	}
-
-	client := &http.Client{}
-	respRequest, err := client.Do(req)
-	if err != nil {
-		return ResponseDetail{}, err
-	}
-	defer respRequest.Body.Close()
-
-	switch respRequest.StatusCode {
-	case http.StatusOK:
-		var resp ResponseDetail
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return ResponseDetail{}, err
-		}
-		return resp, nil
-
-	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
-		var resp ResponseError
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return ResponseDetail{}, err
-		}
-		return ResponseDetail{}, fmt.Errorf("error: %s", resp.Error)
-
-	default:
-		return ResponseDetail{}, fmt.Errorf("unexpected error")
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 }
 
@@ -285,137 +220,139 @@ type GroupManager struct {
 }
 
 // AddUserToGroup добавляет пользователя в группу
-func (g *GroupManager) AddUserToGroup(groupName, email, emailInvite string) (ResponseDetail, error) {
+func (g *GroupManager) AddUserToGroup(groupName, email, emailInvite string, meta *RequestMeta) (*ResponseDetail, *RequestStatus) {
 	urlRequest := fmt.Sprintf("%s/api/v1/groups/%s/add_user/%s/who_invites/%s",
 		g.ConnectionLine, groupName, email, emailInvite)
-	respRequest, err := http.Post(urlRequest, "application/json", nil)
+	req, err := http.NewRequest("POST", urlRequest, nil)
 	if err != nil {
-		return ResponseDetail{}, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
-	switch respRequest.StatusCode {
-	case http.StatusOK:
-		var resp ResponseDetail
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return ResponseDetail{}, err
-		}
-		return resp, nil
-
-	case http.StatusBadRequest, http.StatusInternalServerError:
-		var resp ResponseError
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return ResponseDetail{}, err
-		}
-		return ResponseDetail{}, fmt.Errorf("error: %s", resp.Error)
-
-	default:
-		return ResponseDetail{}, fmt.Errorf("unexpected error")
-	}
-}
-
-// UserList возвращает группы пользователя
-func (g *GroupManager) UserList(email, emailAsk string) ([]Group, error) {
-	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/groups/who_asks/%s", g.ConnectionLine, email, emailAsk)
-	respRequest, err := http.Get(urlRequest)
-	if err != nil {
-		return nil, err
-	}
-	switch respRequest.StatusCode {
-	case http.StatusOK:
-		var groups []Group
-		err = json.NewDecoder(respRequest.Body).Decode(&groups)
-		if err != nil {
-			return nil, err
-		}
-		return groups, nil
-
-	case http.StatusBadRequest, http.StatusInternalServerError:
-		var resp ResponseError
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return nil, err
-		}
-		return nil, fmt.Errorf("error: %s", resp.Error)
-
-	default:
-		return nil, fmt.Errorf("unexpected error")
-	}
-}
-
-// KickOutUser удаляет пользователя из группы
-func (g *GroupManager) KickOutUser(groupName, email, emailKick string) (ResponseDetail, error) {
-	urlRequest := fmt.Sprintf("%s/api/v1/groups/%s/kick_user/%s/who_kicks/%s",
-		g.ConnectionLine, groupName, email, emailKick)
-	respRequest, err := http.Post(urlRequest, "application/json", nil)
-	if err != nil {
-		return ResponseDetail{}, err
-	}
-	switch respRequest.StatusCode {
-	case http.StatusOK:
-		var resp ResponseDetail
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return ResponseDetail{}, err
-		}
-		return resp, nil
-
-	case http.StatusBadRequest, http.StatusInternalServerError:
-		var resp ResponseError
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return ResponseDetail{}, err
-		}
-		return ResponseDetail{}, fmt.Errorf("error: %s", resp.Error)
-
-	default:
-		return ResponseDetail{}, fmt.Errorf("unexpected error")
-	}
-}
-
-// MakeBidToCreateGroup создает заявку на создание группы
-func (g *GroupManager) MakeBidToCreateGroup(groupName, email string) (Bid, error) {
-	urlRequest := fmt.Sprintf("%s/api/v1/groups/%s/who_adds/%s",
-		g.ConnectionLine, groupName, email)
-	respRequest, err := http.Post(urlRequest, "application/json", nil)
-	if err != nil {
-		return Bid{}, err
-	}
-	switch respRequest.StatusCode {
-	case http.StatusOK:
-		var bid Bid
-		err = json.NewDecoder(respRequest.Body).Decode(&bid)
-		if err != nil {
-			return Bid{}, err
-		}
-		return bid, nil
-
-	case http.StatusBadRequest, http.StatusInternalServerError:
-		var resp ResponseError
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return Bid{}, err
-		}
-		return Bid{}, fmt.Errorf("error: %s", resp.Error)
-
-	default:
-		return Bid{}, fmt.Errorf("unexpected error")
-	}
-}
-
-// ChangeBidStatus меняет статус заявки на создание группы
-func (g *GroupManager) ChangeBidStatus(groupName, email, emailChangeStatus, newStatus string) (Bid, error) {
-	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/groups/%s/who_change_status/%s?status=%s",
-		g.ConnectionLine, email, groupName, emailChangeStatus, newStatus)
-	req, err := http.NewRequest("PUT", urlRequest, nil)
-	if err != nil {
-		return Bid{}, err
-	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
 
 	client := &http.Client{}
 	respRequest, err := client.Do(req)
 	if err != nil {
-		return Bid{}, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	defer respRequest.Body.Close()
+
+	switch respRequest.StatusCode {
+	case http.StatusOK:
+		var resp ResponseDetail
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
+
+	case http.StatusBadRequest, http.StatusInternalServerError:
+		var resp ResponseError
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
+
+	default:
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+}
+
+// UserList возвращает группы пользователя
+func (g *GroupManager) UserList(email, emailAsk string, meta *RequestMeta) ([]Group, *RequestStatus) {
+	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/groups/who_asks/%s", g.ConnectionLine, email, emailAsk)
+	req, err := http.NewRequest("GET", urlRequest, nil)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	defer respRequest.Body.Close()
+
+	switch respRequest.StatusCode {
+	case http.StatusOK:
+		var resp []Group
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return resp, newRequestStatus(nil, respRequest.StatusCode)
+
+	case http.StatusBadRequest, http.StatusInternalServerError:
+		var resp ResponseError
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
+
+	default:
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+}
+
+// KickOutUser удаляет пользователя из группы
+func (g *GroupManager) KickOutUser(groupName, email, emailKick string, meta *RequestMeta) (*ResponseDetail, *RequestStatus) {
+	urlRequest := fmt.Sprintf("%s/api/v1/groups/%s/kick_user/%s/who_kicks/%s",
+		g.ConnectionLine, groupName, email, emailKick)
+	req, err := http.NewRequest("POST", urlRequest, nil)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	defer respRequest.Body.Close()
+
+	switch respRequest.StatusCode {
+	case http.StatusOK:
+		var resp ResponseDetail
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
+
+	case http.StatusBadRequest, http.StatusInternalServerError:
+		var resp ResponseError
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
+
+	default:
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+}
+
+// MakeBidToCreateGroup создает заявку на создание группы
+func (g *GroupManager) MakeBidToCreateGroup(groupName, email string, meta *RequestMeta) (*Bid, *RequestStatus) {
+	urlRequest := fmt.Sprintf("%s/api/v1/groups/%s/who_adds/%s",
+		g.ConnectionLine, groupName, email)
+	req, err := http.NewRequest("POST", urlRequest, nil)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 	defer respRequest.Body.Close()
 
@@ -424,36 +361,78 @@ func (g *GroupManager) ChangeBidStatus(groupName, email, emailChangeStatus, newS
 		var resp Bid
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return Bid{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return resp, nil
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusInternalServerError:
 		var resp ResponseError
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return Bid{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return Bid{}, fmt.Errorf("error: %s", resp.Error)
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
 
 	default:
-		return Bid{}, fmt.Errorf("unexpected error")
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 }
 
-// ChangeOwner изменяет ответственного в группе
-func (g *GroupManager) ChangeOwner(groupName, email, emailWhoChange string) (Group, error) {
-	urlRequest := fmt.Sprintf("%s/api/v1/groups/%s/users/%s/who_change_owner/%s",
-		g.ConnectionLine, groupName, email, emailWhoChange)
+// ChangeBidStatus меняет статус заявки на создание группы
+func (g *GroupManager) ChangeBidStatus(groupName, email, emailChangeStatus, newStatus string, meta *RequestMeta) (*Bid, *RequestStatus) {
+	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/groups/%s/who_change_status/%s?status=%s",
+		g.ConnectionLine, email, groupName, emailChangeStatus, newStatus)
 	req, err := http.NewRequest("PUT", urlRequest, nil)
 	if err != nil {
-		return Group{}, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
 
 	client := &http.Client{}
 	respRequest, err := client.Do(req)
 	if err != nil {
-		return Group{}, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	defer respRequest.Body.Close()
+
+	switch respRequest.StatusCode {
+	case http.StatusOK:
+		var resp Bid
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
+
+	case http.StatusBadRequest, http.StatusInternalServerError:
+		var resp ResponseError
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
+
+	default:
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+}
+
+// ChangeOwner изменяет ответственного в группе
+func (g *GroupManager) ChangeOwner(groupName, email, emailWhoChange string, meta *RequestMeta) (*Group, *RequestStatus) {
+	urlRequest := fmt.Sprintf("%s/api/v1/groups/%s/users/%s/who_change_owner/%s",
+		g.ConnectionLine, groupName, email, emailWhoChange)
+	req, err := http.NewRequest("PUT", urlRequest, nil)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 	defer respRequest.Body.Close()
 
@@ -462,20 +441,152 @@ func (g *GroupManager) ChangeOwner(groupName, email, emailWhoChange string) (Gro
 		var resp Group
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return Group{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return resp, nil
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusInternalServerError:
 		var resp ResponseError
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return Group{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return Group{}, fmt.Errorf("error: %s", resp.Error)
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
 
 	default:
-		return Group{}, fmt.Errorf("unexpected error")
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+}
+
+// //////// USER //////////
+type UserManager struct {
+	ConnectionLine string
+}
+
+// Create создает пользователя
+func (u *UserManager) Create(email, password, firstName, lastName string, meta *RequestMeta) (*UserWithoutPassword, *RequestStatus) {
+	urlRequest := fmt.Sprintf("%s/api/v1/users", u.ConnectionLine)
+	body := CreateData{
+		Email:     email,
+		Password:  password,
+		FirstName: firstName,
+		LastName:  lastName,
+	}
+	bodyEncoded, err := json.Marshal(body)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	req, err := http.NewRequest("POST", urlRequest, bytes.NewReader(bodyEncoded))
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	defer respRequest.Body.Close()
+
+	switch respRequest.StatusCode {
+	case http.StatusOK:
+		var resp UserWithoutPassword
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return &resp, nil
+
+	case http.StatusBadRequest, http.StatusInternalServerError:
+		var resp ResponseError
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
+
+	default:
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+}
+
+// Get возвращает пользователя
+func (u *UserManager) Get(email string, meta *RequestMeta) (*UserWithoutPassword, *RequestStatus) {
+	urlRequest := fmt.Sprintf("%s/api/v1/users/%s", u.ConnectionLine, email)
+	req, err := http.NewRequest("GET", urlRequest, nil)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	defer respRequest.Body.Close()
+
+	switch respRequest.StatusCode {
+	case http.StatusOK:
+		var resp UserWithoutPassword
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return &resp, nil
+
+	case http.StatusBadRequest, http.StatusInternalServerError:
+		var resp ResponseError
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
+
+	default:
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+}
+
+// Delete удаляет пользователя
+func (a *UserManager) Delete(email, emailDelete string, meta *RequestMeta) (*ResponseDetail, *RequestStatus) {
+	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/who_deletes/%s", a.ConnectionLine, email, emailDelete)
+	req, err := http.NewRequest("DELETE", urlRequest, nil)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	defer respRequest.Body.Close()
+
+	switch respRequest.StatusCode {
+	case http.StatusOK:
+		var resp ResponseDetail
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return &resp, nil
+
+	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
+		var resp ResponseError
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
+
+	default:
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 }
 
@@ -485,85 +596,110 @@ type PrivelegeManager struct {
 }
 
 // AddAgentToGroup создает связь между агентом и группой
-func (p *PrivelegeManager) AddAgentToGroup(groupName, agentName, emailAdd string) (ResponseDetail, error) {
+func (p *PrivelegeManager) AddAgentToGroup(groupName, agentName, emailAdd string, meta *RequestMeta) (*ResponseDetail, *RequestStatus) {
 	urlRequest := fmt.Sprintf("%s/api/v1/groups/%s/priveleges/new/agents/%s/who_adds/%s",
 		p.ConnectionLine, groupName, agentName, emailAdd)
-	respRequest, err := http.Post(urlRequest, "application/json", nil)
+	req, err := http.NewRequest("POST", urlRequest, nil)
 	if err != nil {
-		return ResponseDetail{}, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	defer respRequest.Body.Close()
+
 	switch respRequest.StatusCode {
 	case http.StatusOK:
 		var resp ResponseDetail
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return ResponseDetail{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return resp, nil
+		return &resp, nil
 
 	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
 		var resp ResponseError
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return ResponseDetail{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return ResponseDetail{}, fmt.Errorf("error: %s", resp.Error)
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
 
 	default:
-		return ResponseDetail{}, fmt.Errorf("unexpected error")
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 }
 
 // DeleteAgentFromGroup разрывает связь между агентом и группой
-func (p *PrivelegeManager) DeleteAgentFromGroup(groupName, agentName, emailDelete string) (ResponseDetail, error) {
+func (p *PrivelegeManager) DeleteAgentFromGroup(groupName, agentName, emailDelete string, meta *RequestMeta) (*ResponseDetail, *RequestStatus) {
 	urlRequest := fmt.Sprintf("%s/api/v1/groups/%s/priveleges/delete/agents/%s/who_deletes/%s",
 		p.ConnectionLine, groupName, agentName, emailDelete)
-	req, err := http.NewRequest("PUT", urlRequest, nil)
+	req, err := http.NewRequest("DELETE", urlRequest, nil)
 	if err != nil {
-		return ResponseDetail{}, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
 
 	client := &http.Client{}
 	respRequest, err := client.Do(req)
 	if err != nil {
-		return ResponseDetail{}, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
+	defer respRequest.Body.Close()
+
 	switch respRequest.StatusCode {
 	case http.StatusOK:
 		var resp ResponseDetail
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return ResponseDetail{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return resp, nil
+		return &resp, nil
 
 	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
 		var resp ResponseError
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return ResponseDetail{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return ResponseDetail{}, fmt.Errorf("error: %s", resp.Error)
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
 
 	default:
-		return ResponseDetail{}, fmt.Errorf("unexpected error")
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 }
 
 // GetGroupAgents возвращает список агентов какойлибо группы
-func (p *PrivelegeManager) GetGroupAgents(groupName, emailAsk string) ([]Agent, error) {
+func (p *PrivelegeManager) GetGroupAgents(groupName, emailAsk string, meta *RequestMeta) ([]Agent, *RequestStatus) {
 	urlRequest := fmt.Sprintf("%s/api/v1/groups/%s/priveleges/who_asks/%s",
 		p.ConnectionLine, groupName, emailAsk)
-	respRequest, err := http.Get(urlRequest)
+
+	req, err := http.NewRequest("GET", urlRequest, nil)
 	if err != nil {
-		return nil, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	defer respRequest.Body.Close()
+
 	switch respRequest.StatusCode {
 	case http.StatusOK:
 		var agents []Agent
 		err = json.NewDecoder(respRequest.Body).Decode(&agents)
 		if err != nil {
-			return nil, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
 		return agents, nil
 
@@ -571,95 +707,119 @@ func (p *PrivelegeManager) GetGroupAgents(groupName, emailAsk string) ([]Agent, 
 		var resp ResponseError
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return nil, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return nil, fmt.Errorf("error: %s", resp.Error)
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
 
 	default:
-		return nil, fmt.Errorf("unexpected error")
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 }
 
 // AddAgentToUser создает связь между агентом и пользователем
-func (p *PrivelegeManager) AddAgentToUser(email, agentName, emailAdd string) (ResponseDetail, error) {
+func (p *PrivelegeManager) AddAgentToUser(email, agentName, emailAdd string, meta *RequestMeta) (*ResponseDetail, *RequestStatus) {
 	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/priveleges/new/agents/%s/who_adds/%s",
 		p.ConnectionLine, email, agentName, emailAdd)
-	respRequest, err := http.Post(urlRequest, "application/json", nil)
+	req, err := http.NewRequest("POST", urlRequest, nil)
 	if err != nil {
-		return ResponseDetail{}, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
-	switch respRequest.StatusCode {
-	case http.StatusOK:
-		var resp ResponseDetail
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return ResponseDetail{}, err
-		}
-		return resp, nil
-
-	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
-		var resp ResponseError
-		err = json.NewDecoder(respRequest.Body).Decode(&resp)
-		if err != nil {
-			return ResponseDetail{}, err
-		}
-		return ResponseDetail{}, fmt.Errorf("error: %s", resp.Error)
-
-	default:
-		return ResponseDetail{}, fmt.Errorf("unexpected error")
-	}
-}
-
-// DeleteAgentFromUser разрывает связь между агентом и пользователем
-func (p *PrivelegeManager) DeleteAgentFromUser(email, agentName, emailDelete string) (ResponseDetail, error) {
-	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/priveleges/delete/agents/%s/who_deletes/%s",
-		p.ConnectionLine, email, agentName, emailDelete)
-	req, err := http.NewRequest("PUT", urlRequest, nil)
-	if err != nil {
-		return ResponseDetail{}, err
-	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
 
 	client := &http.Client{}
 	respRequest, err := client.Do(req)
 	if err != nil {
-		return ResponseDetail{}, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
+	defer respRequest.Body.Close()
+
 	switch respRequest.StatusCode {
 	case http.StatusOK:
 		var resp ResponseDetail
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return ResponseDetail{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return resp, nil
+		return &resp, nil
 
 	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
 		var resp ResponseError
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return ResponseDetail{}, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return ResponseDetail{}, fmt.Errorf("error: %s", resp.Error)
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
 
 	default:
-		return ResponseDetail{}, fmt.Errorf("unexpected error")
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+}
+
+// DeleteAgentFromUser разрывает связь между агентом и пользователем
+func (p *PrivelegeManager) DeleteAgentFromUser(email, agentName, emailDelete string, meta *RequestMeta) (*ResponseDetail, *RequestStatus) {
+	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/priveleges/delete/agents/%s/who_deletes/%s",
+		p.ConnectionLine, email, agentName, emailDelete)
+	req, err := http.NewRequest("DELETE", urlRequest, nil)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	defer respRequest.Body.Close()
+
+	switch respRequest.StatusCode {
+	case http.StatusOK:
+		var resp ResponseDetail
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return &resp, nil
+
+	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
+		var resp ResponseError
+		err = json.NewDecoder(respRequest.Body).Decode(&resp)
+		if err != nil {
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+		}
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
+
+	default:
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 }
 
 // GetGroupAgents возвращает список агентов какойлибо группы
-func (p *PrivelegeManager) GetUserAgents(email, emailAsk string) ([]Agent, error) {
+func (p *PrivelegeManager) GetUserAgents(email, emailAsk string, meta *RequestMeta) ([]Agent, *RequestStatus) {
 	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/priveleges/who_asks/%s",
 		p.ConnectionLine, email, emailAsk)
-	respRequest, err := http.Get(urlRequest)
+	req, err := http.NewRequest("GET", urlRequest, nil)
 	if err != nil {
-		return nil, err
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	defer respRequest.Body.Close()
+
 	switch respRequest.StatusCode {
 	case http.StatusOK:
 		var agents []Agent
 		err = json.NewDecoder(respRequest.Body).Decode(&agents)
 		if err != nil {
-			return nil, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
 		return agents, nil
 
@@ -667,29 +827,39 @@ func (p *PrivelegeManager) GetUserAgents(email, emailAsk string) ([]Agent, error
 		var resp ResponseError
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return nil, err
+			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return nil, fmt.Errorf("error: %s", resp.Error)
+		return nil, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
 
 	default:
-		return nil, fmt.Errorf("unexpected error")
+		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 }
 
 // CanUserExecute проверяет, может ли пользователь выполнить процесс на выбранном агенте
-func (p *PrivelegeManager) CanUserExecute(email, agentName string) (bool, error) {
+func (p *PrivelegeManager) CanUserExecute(email, agentName string, meta *RequestMeta) (bool, *RequestStatus) {
 	urlRequest := fmt.Sprintf("%s/api/v1/users/%s/check_access/agents/%s",
 		p.ConnectionLine, email, agentName)
-	respRequest, err := http.Get(urlRequest)
+	req, err := http.NewRequest("DELETE", urlRequest, nil)
 	if err != nil {
-		return false, err
+		return false, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
+	req.Header.Set(XRealIP, meta.RealIp)
+	req.Header.Set(UserAgent, meta.UserAgent)
+
+	client := &http.Client{}
+	respRequest, err := client.Do(req)
+	if err != nil {
+		return false, newRequestStatus(ErrInternal, http.StatusInternalServerError)
+	}
+	defer respRequest.Body.Close()
+
 	switch respRequest.StatusCode {
 	case http.StatusOK:
 		var data map[string]bool
 		err = json.NewDecoder(respRequest.Body).Decode(&data)
 		if err != nil {
-			return false, err
+			return false, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
 		return data["can_execute"], nil
 
@@ -697,11 +867,11 @@ func (p *PrivelegeManager) CanUserExecute(email, agentName string) (bool, error)
 		var resp ResponseError
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {
-			return false, err
+			return false, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return false, fmt.Errorf("error: %s", resp.Error)
+		return false, newRequestStatus(errors.New(resp.Error), respRequest.StatusCode)
 
 	default:
-		return false, fmt.Errorf("unexpected error")
+		return false, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
 }

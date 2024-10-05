@@ -8,6 +8,7 @@ import (
 )
 
 func GetCtxRequestID(r *http.Request) (string, error) {
+
 	requestID, ok := r.Context().Value(mc.AccessKey(mc.RequestID)).(string)
 	if !ok {
 		// we need to authenticate requests using unique keys | remote address is OK

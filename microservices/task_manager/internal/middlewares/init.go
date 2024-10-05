@@ -7,7 +7,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Init инициализирует цепочку middlewares. 
 func Init(r *mux.Router, logger *zap.Logger) (h http.Handler) {
 	h = Cors(r)
 	h = Recover(h, logger)

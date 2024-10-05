@@ -5,6 +5,7 @@ type AccessKey string
 // Частые переменные
 const (
 	RequestID = "request_id"
+	XRealIP   = "X-Real-IP"
 )
 
 // Настройка хэширования с помощью Argon2

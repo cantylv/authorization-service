@@ -6,7 +6,6 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/gorilla/mux v1.8.1
 	github.com/jackc/pgx/v5 v5.7.1
-	github.com/pkg/errors v0.9.1
 	github.com/satori/uuid v1.2.0
 	github.com/spf13/viper v1.19.0
 	go.uber.org/zap v1.27.0
