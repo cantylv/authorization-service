@@ -1,10 +1,10 @@
 package client
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -464,19 +464,9 @@ type UserManager struct {
 }
 
 // Create создает пользователя
-func (u *UserManager) Create(email, password, firstName, lastName string, meta *RequestMeta) (*UserWithoutPassword, *RequestStatus) {
+func (u *UserManager) Create(body io.ReadCloser, meta *RequestMeta) (*UserWithoutPassword, *RequestStatus) {
 	urlRequest := fmt.Sprintf("%s/api/v1/users", u.ConnectionLine)
-	body := CreateData{
-		Email:     email,
-		Password:  password,
-		FirstName: firstName,
-		LastName:  lastName,
-	}
-	bodyEncoded, err := json.Marshal(body)
-	if err != nil {
-		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
-	}
-	req, err := http.NewRequest("POST", urlRequest, bytes.NewReader(bodyEncoded))
+	req, err := http.NewRequest("POST", urlRequest, body)
 	if err != nil {
 		return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 	}
@@ -497,7 +487,7 @@ func (u *UserManager) Create(email, password, firstName, lastName string, meta *
 		if err != nil {
 			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return &resp, nil
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusInternalServerError:
 		var resp ResponseError
@@ -536,7 +526,7 @@ func (u *UserManager) Get(email string, meta *RequestMeta) (*UserWithoutPassword
 		if err != nil {
 			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return &resp, nil
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusInternalServerError:
 		var resp ResponseError
@@ -575,7 +565,7 @@ func (a *UserManager) Delete(email, emailDelete string, meta *RequestMeta) (*Res
 		if err != nil {
 			return nil, newRequestStatus(ErrInternal, http.StatusInternalServerError)
 		}
-		return &resp, nil
+		return &resp, newRequestStatus(nil, respRequest.StatusCode)
 
 	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
 		var resp ResponseError

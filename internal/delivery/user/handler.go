@@ -112,13 +112,13 @@ func (h *UserHandlerManager) Delete(w http.ResponseWriter, r *http.Request) {
 		f.Response(w, dto.ResponseError{Error: me.ErrInvalidEmail.Error()}, http.StatusBadRequest)
 		return
 	}
-	userEmailAsk := mux.Vars(r)["email_ask"]
-	if !govalidator.IsEmail(userEmailAsk) {
+	userEmailDelete := mux.Vars(r)["email_delete"]
+	if !govalidator.IsEmail(userEmailDelete) {
 		h.logger.Info(me.ErrInvalidEmail.Error(), zap.String(mc.RequestID, requestID))
 		f.Response(w, dto.ResponseError{Error: me.ErrInvalidEmail.Error()}, http.StatusBadRequest)
 		return
 	}
-	err = h.ucUser.Delete(r.Context(), userEmail, userEmailAsk)
+	err = h.ucUser.Delete(r.Context(), userEmail, userEmailDelete)
 	if err != nil {
 		if errors.Is(err, me.ErrUserNotExist) || errors.Is(err, me.ErrUserIsResponsible) {
 			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))

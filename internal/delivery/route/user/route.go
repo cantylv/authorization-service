@@ -19,8 +19,8 @@ func InitHandlers(r *mux.Router, postgresClient *pgx.Conn, logger *zap.Logger) {
 	ucUser := uUser.NewUsecaseLayer(repoUser, repoGroup)
 	userHandlerManager := user.NewUserHandlerManager(ucUser, logger)
 	// ручки, отвечающие за создание, получение и удаление пользователя
-	r.HandleFunc("/users", userHandlerManager.Create).Methods("POST")                                   // создание пользователя
-	r.HandleFunc("/users/{email}", userHandlerManager.Read).Methods("GET")                              // чтение данных пользователя
-	r.HandleFunc("/users/{email}/who_deletes/{email_ask}", userHandlerManager.Delete).Methods("DELETE") // удаление пользователя
-	r.HandleFunc("/openid/callback", func(http.ResponseWriter, *http.Request) {}).Methods("POST")       // callback URL для openID провайдера
+	r.HandleFunc("/users", userHandlerManager.Create).Methods("POST")                                      // создание пользователя
+	r.HandleFunc("/users/{email}", userHandlerManager.Read).Methods("GET")                                 // чтение данных пользователя
+	r.HandleFunc("/users/{email}/who_deletes/{email_delete}", userHandlerManager.Delete).Methods("DELETE") // удаление пользователя
+	r.HandleFunc("/openid/callback", func(http.ResponseWriter, *http.Request) {}).Methods("POST")          // callback URL для openID провайдера
 }

@@ -111,16 +111,15 @@ func (u *UsecaseLayer) GetUserGroups(ctx context.Context, userEmail, askUserEmai
 			}
 			return nil, err
 		}
-		if askUserEmail != viper.GetString("root_email") && userEmail != viper.GetString("root_email") {
-			groups, err := u.repoGroup.GetCommonGroups(ctx, uDB.ID, uInviter.ID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					return nil, nil
-				}
-				return nil, err
+		// получаем список общих групп 
+		groups, err := u.repoGroup.GetCommonGroups(ctx, uDB.ID, uInviter.ID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
 			}
-			return groups, nil
+			return nil, err
 		}
+		return groups, nil
 	}
 	groups, err := u.repoGroup.GetUserGroups(ctx, uDB.ID)
 	if err != nil {

@@ -17,7 +17,7 @@ import (
 type Usecase interface {
 	Create(ctx context.Context, authData *dto.CreateData) (*ent.User, error)
 	Read(ctx context.Context, email string) (*ent.User, error)
-	Delete(ctx context.Context, userEmail, userEmailAsk string) error
+	Delete(ctx context.Context, userEmail, userEmailDelete string) error
 }
 
 var _ Usecase = (*UsecaseLayer)(nil)
@@ -74,7 +74,7 @@ func (u *UsecaseLayer) Read(ctx context.Context, email string) (*ent.User, error
 // Delete удаляет пользователя из системы.
 // Нельзя удалить root пользователя, а также любого ответственного за группу. Также удалить пользователя
 // может только root, либо пользователь сам себя удаляет.
-func (u *UsecaseLayer) Delete(ctx context.Context, userEmail, userEmailAsk string) error {
+func (u *UsecaseLayer) Delete(ctx context.Context, userEmail, userEmailDelete string) error {
 	if userEmail == viper.GetString("root_email") {
 		return me.ErrCantDeleteRoot
 	}
@@ -95,11 +95,11 @@ func (u *UsecaseLayer) Delete(ctx context.Context, userEmail, userEmailAsk strin
 		return me.ErrUserIsResponsible
 	}
 	// случай, когда пользователь удаляет сам себя
-	if userEmail == userEmailAsk {
+	if userEmail == userEmailDelete {
 		return u.repoUser.DeleteByEmail(ctx, userEmail)
 	}
 	// удалить пользователя из системы может только root пользователь
-	if userEmailAsk != viper.GetString("root_email") {
+	if userEmailDelete != viper.GetString("root_email") {
 		return me.ErrOnlyRootCanDeleteUser
 	}
 	return u.repoUser.DeleteByEmail(ctx, userEmail)

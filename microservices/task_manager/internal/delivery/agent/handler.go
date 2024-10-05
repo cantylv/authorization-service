@@ -57,13 +57,13 @@ func (h *AgentProxyManager) DeleteAgent(w http.ResponseWriter, r *http.Request) 
 	pathVars := mux.Vars(r)
 	agentName := pathVars["agent_name"]
 	emailDelete := pathVars["email_delete"]
-	agent, reqStatus := h.privelegeClient.Agent.Delete(agentName, emailDelete, &meta)
+	detailMsg, reqStatus := h.privelegeClient.Agent.Delete(agentName, emailDelete, &meta)
 	if reqStatus.Err != nil {
 		h.logger.Info(reqStatus.Err.Error(), zap.String(mc.RequestID, requestID))
 		f.Response(w, dto.ResponseError{Error: reqStatus.Err.Error()}, reqStatus.StatusCode)
 		return
 	}
-	f.Response(w, agent, reqStatus.StatusCode)
+	f.Response(w, detailMsg, reqStatus.StatusCode)
 }
 
 func (h *AgentProxyManager) GetAgents(w http.ResponseWriter, r *http.Request) {
@@ -77,11 +77,11 @@ func (h *AgentProxyManager) GetAgents(w http.ResponseWriter, r *http.Request) {
 	}
 	pathVars := mux.Vars(r)
 	emailRead := pathVars["email_read"]
-	agent, reqStatus := h.privelegeClient.Agent.GetAll(emailRead, &meta)
+	agents, reqStatus := h.privelegeClient.Agent.GetAll(emailRead, &meta)
 	if reqStatus.Err != nil {
 		h.logger.Info(reqStatus.Err.Error(), zap.String(mc.RequestID, requestID))
 		f.Response(w, dto.ResponseError{Error: reqStatus.Err.Error()}, reqStatus.StatusCode)
 		return
 	}
-	f.Response(w, agent, reqStatus.StatusCode)
+	f.Response(w, agents, reqStatus.StatusCode)
 }
