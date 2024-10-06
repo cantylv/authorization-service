@@ -8,7 +8,7 @@ import (
 	"os/signal"
 
 	"github.com/cantylv/authorization-service/microservices/archive_manager/internal/delivery/route"
-	"github.com/cantylv/authorization-service/services/postgres"
+	"github.com/cantylv/authorization-service/microservices/archive_manager/services/postgres"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -17,10 +17,6 @@ import (
 func Run(logger *zap.Logger) {
 	// init psql
 	postgresClient := postgres.Init(logger)
-	defer func() {
-		err := postgresClient.Close(context.Background())
-		logger.Error(fmt.Sprintf("error while closing connection with psql: %v", err))
-	}()
 	r := mux.NewRouter()
 	// инициализуруем серверные ручки
 	handler := route.InitHTTPHandlers(r, postgresClient, logger)

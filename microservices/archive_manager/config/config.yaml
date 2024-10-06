@@ -1,13 +1,13 @@
 postgres:
   user: admin
   password: admin123
-  connectionHost: localhost
-  port: 5433
+  connectionHost: postgres_archive
+  port: 5432
   database_name: archive
   sslmode: disable
 
 archive_manager: 
-  address: localhost:8011
+  address: :8011
   write_timeout: 5s
   read_timeout: 5s
   idle_timeout: 3s

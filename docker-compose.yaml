@@ -12,10 +12,10 @@ services:
       - POSTGRES_PASSWORD=${P_POSTGRES_PASSWORD}
       - POSTGRES_DB=${P_POSTGRES_DATABASE}
     volumes:
-      - ./services/postgres/privelege/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
-      # - ./services/postgres/privelege/data:/var/lib/postgresql/data
-    ports:
-      - ${P_POSTGRES_PORT}:5432
+      - ./services/postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
+      # - ./services/postgres/data:/var/lib/postgresql/data
+    expose:
+      - ${P_POSTGRES_PORT}
     networks:
       - ecosystem
 # бд, используемая для хранения архивов каких-либо записей
@@ -28,12 +28,112 @@ services:
       - POSTGRES_PASSWORD=${A_POSTGRES_PASSWORD}
       - POSTGRES_DB=${A_POSTGRES_DATABASE}
     volumes:
-      - ./services/postgres/archive/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
+      - ./microservices/archive_manager/services/postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
       # - ./services/postgres/archive/data:/var/lib/postgresql/data
-    ports:
-      - ${A_POSTGRES_PORT}:5432
+    expose:
+      - ${A_POSTGRES_PORT}
     networks:
       - ecosystem
+  microservice_privelege:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: microservice_privelege
+    restart: always
+    expose:
+      - ${PS_SERVER_PORT}
+    tty: true
+    networks:
+      - ecosystem
+    depends_on:
+      - postgres_privelege
+  archive_manager:
+    build:
+      context: ./
+      dockerfile: ./microservices/archive_manager/Dockerfile
+    container_name: archive_manager
+    restart: always
+    expose:
+      - ${AM_SERVER_PORT}
+    tty: true
+    networks:
+      - ecosystem
+    depends_on:
+      - postgres_archive
+  task_manager1:
+    build:
+      context: ./
+      dockerfile: ./microservices/task_manager/Dockerfile
+    container_name: task_manager1
+    restart: always
+    expose:
+      - ${TM1_SERVER_PORT}
+    tty: true
+    environment:
+      - PS_SERVER_CONNECTION_HOST=${PS_SERVER_CONNECTION_HOST}
+      - PS_SERVER_PORT=${PS_SERVER_PORT}
+      - AM_SERVER_CONNECTION_HOST=${AM_SERVER_CONNECTION_HOST}
+      - AM_SERVER_PORT=${AM_SERVER_PORT}
+      - TM_SERVER_ADDRESS=${TM1_SERVER_ADDRESS}
+    networks:
+      - ecosystem
+    depends_on:
+      - archive_manager
+  task_manager2:
+    build:
+      context: ./
+      dockerfile: ./microservices/task_manager/Dockerfile
+    container_name: task_manager2
+    restart: always
+    expose:
+      - ${TM2_SERVER_PORT}
+    tty: true
+    environment:
+      - PS_SERVER_CONNECTION_HOST=${PS_SERVER_CONNECTION_HOST}
+      - PS_SERVER_PORT=${PS_SERVER_PORT}
+      - AM_SERVER_CONNECTION_HOST=${AM_SERVER_CONNECTION_HOST}
+      - AM_SERVER_PORT=${AM_SERVER_PORT}
+      - TM_SERVER_ADDRESS=${TM2_SERVER_ADDRESS}
+    networks:
+      - ecosystem
+    depends_on:
+      - archive_manager
+  task_manager3:
+    build:
+      context: ./
+      dockerfile: ./microservices/task_manager/Dockerfile
+    container_name: task_manager3
+    restart: always
+    expose:
+      - ${TM3_SERVER_PORT}
+    tty: true
+    environment:
+      - PS_SERVER_CONNECTION_HOST=${PS_SERVER_CONNECTION_HOST}
+      - PS_SERVER_PORT=${PS_SERVER_PORT}
+      - AM_SERVER_CONNECTION_HOST=${AM_SERVER_CONNECTION_HOST}
+      - AM_SERVER_PORT=${AM_SERVER_PORT}
+      - TM_SERVER_ADDRESS=${TM3_SERVER_ADDRESS}
+    networks:
+      - ecosystem
+    depends_on:
+      - archive_manager
+  nginx:
+    image: nginx:1.27.1
+    container_name: nginx
+    restart: always
+    volumes:
+      - ./services/nginx/logs:/var/log/nginx/
+      - ./services/nginx/dev/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - ${NGINX_PORT}:${NGINX_PORT}
+    depends_on:
+     - task_manager3
+     - task_manager2
+     - task_manager1
+    tty: true
+    networks:
+      - ecosystem
+
   # pgamdin:
   #   image: dpage/pgadmin4:latest
   #   restart: always

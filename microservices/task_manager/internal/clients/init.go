@@ -3,6 +3,7 @@ package clients
 import (
 	pClient "github.com/cantylv/authorization-service/client"
 	aClient "github.com/cantylv/authorization-service/microservices/archive_manager/client"
+	"github.com/spf13/viper"
 )
 
 type Cluster struct {
@@ -12,15 +13,15 @@ type Cluster struct {
 
 func InitCluster() *Cluster {
 	privelegeClient := pClient.NewClient(&pClient.ClientOpts{
-		Host:   "localhost",
-		Port:   8010,
+		Host:   viper.GetString("microservice_privelege.host"),
+		Port:   viper.GetInt("microservice_privelege.port"),
 		UseSsl: false,
 	})
 	privelegeClient.CheckConnection()
 
 	archiveClient := aClient.NewClient(&aClient.ClientOpts{
-		Host:   "localhost",
-		Port:   8011,
+		Host:   viper.GetString("microservice_archive.host"),
+		Port:   viper.GetInt("microservice_archive.port"),
 		UseSsl: false,
 	})
 	archiveClient.CheckConnection()

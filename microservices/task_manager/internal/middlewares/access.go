@@ -46,7 +46,7 @@ func Access(h http.Handler, logger *zap.Logger) http.Handler {
 		timeNow := time.Now()
 		startLog := AccessLogStart{
 			UserAgent:      r.UserAgent(),
-			RealIp:         r.RemoteAddr,
+			RealIp:         r.Header.Get("X-Real-IP"),
 			ContentLength:  r.ContentLength,
 			URI:            r.RequestURI,
 			Method:         r.Method,

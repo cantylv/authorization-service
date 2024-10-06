@@ -12,13 +12,14 @@ import (
 // readEnvAndSetDefault устанавливает переменные конфигурации viper по умолчанию. Используется для случая,
 // когда файл конфигурации не был найден. Использует переменные окружения для настройки.
 func readEnvAndSetDefault(logger *zap.Logger) {
-	// SERVER
-	if address := os.Getenv("TM_SERVER_ADDRESS"); address != "" {
-		viper.SetDefault("task_manager.address", address)
-	} else {
-		viper.SetDefault("task_manager.address", "localhost:8010")
-	}
+	// CLIENTS HOSTS AND PORTS
+	viper.SetDefault("microservice_privelege.host", os.Getenv("PS_SERVER_CONNECTION_HOST"))
+	viper.SetDefault("microservice_privelege.port", os.Getenv("PS_SERVER_PORT"))
 
+	viper.SetDefault("microservice_archive.host", os.Getenv("AM_SERVER_CONNECTION_HOST"))
+	viper.SetDefault("microservice_archive.port", os.Getenv("AM_SERVER_PORT"))
+	// SERVER
+	viper.SetDefault("task_manager.address", os.Getenv("TM_SERVER_ADDRESS"))
 	if writeTimeout := os.Getenv("TM_SERVER_WRITE_TIMEOUT"); writeTimeout != "" {
 		timeout, err := time.ParseDuration(writeTimeout)
 		if err != nil {

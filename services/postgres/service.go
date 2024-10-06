@@ -48,11 +48,9 @@ func Init(logger *zap.Logger) *pgx.Conn {
 		logger.Fatal("can't establish connection to postgresql")
 	}
 
-	if viper.GetString("postgres.database_name") != "archive" {
-		err = createRootUser(conn)
-		if err != nil {
-			logger.Fatal(fmt.Sprintf("error while creating root user: %v", err))
-		}
+	err = createRootUser(conn)
+	if err != nil {
+		logger.Fatal(fmt.Sprintf("error while creating root user: %v", err))
 	}
 
 	logger.Info("postgresql connected successfully")

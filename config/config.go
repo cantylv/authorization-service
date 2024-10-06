@@ -36,7 +36,7 @@ func readEnvAndSetDefault(logger *zap.Logger) {
 	if host := os.Getenv("P_POSTGRES_CONNECTION_HOST"); host != "" {
 		viper.SetDefault("postgres.connectionHost", host)
 	} else {
-		viper.SetDefault("postgres.connectionHost", "localhost")
+		viper.SetDefault("postgres.connectionHost", "postgres_privelege")
 	}
 
 	if rootEmail := os.Getenv("ROOT_EMAIL"); rootEmail != "" {
@@ -68,7 +68,7 @@ func readEnvAndSetDefault(logger *zap.Logger) {
 	if address := os.Getenv("PS_SERVER_ADDRESS"); address != "" {
 		viper.SetDefault("server.address", address)
 	} else {
-		viper.SetDefault("server.address", "localhost:8010")
+		viper.SetDefault("server.address", ":8010")
 	}
 
 	if writeTimeout := os.Getenv("PS_SERVER_WRITE_TIMEOUT"); writeTimeout != "" {

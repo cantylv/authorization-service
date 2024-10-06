@@ -17,19 +17,19 @@ func readEnvAndSetDefault(logger *zap.Logger) {
 	if port := os.Getenv("A_POSTGRES_PORT"); port != "" {
 		psqlPort, err := strconv.Atoi(port)
 		if err != nil {
-			logger.Info("you've passed incorrect value of env variable 'A_POSTGRES_PORT', so it will be with default value 5433")
-			viper.SetDefault("postgres.port", 5433)
+			logger.Info("you've passed incorrect value of env variable 'A_POSTGRES_PORT', so it will be with default value 5432")
+			viper.SetDefault("postgres.port", 5432)
 		} else {
 			viper.SetDefault("postgres.port", psqlPort)
 		}
 	} else {
-		viper.SetDefault("postgres.port", 5433)
+		viper.SetDefault("postgres.port", 5432)
 	}
 
 	if host := os.Getenv("A_POSTGRES_CONNECTION_HOST"); host != "" {
 		viper.SetDefault("postgres.connectionHost", host)
 	} else {
-		viper.SetDefault("postgres.connectionHost", "localhost")
+		viper.SetDefault("postgres.connectionHost", "postgres_archive")
 	}
 
 	viper.SetDefault("postgres.sslmode", "disable")
@@ -37,7 +37,7 @@ func readEnvAndSetDefault(logger *zap.Logger) {
 	if address := os.Getenv("AM_SERVER_ADDRESS"); address != "" {
 		viper.SetDefault("archive_manager.address", address)
 	} else {
-		viper.SetDefault("archive_manager.address", "localhost:8011")
+		viper.SetDefault("archive_manager.address", ":8011")
 	}
 
 	if writeTimeout := os.Getenv("AM_SERVER_WRITE_TIMEOUT"); writeTimeout != "" {
