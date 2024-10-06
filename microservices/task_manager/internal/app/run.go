@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/cantylv/authorization-service/client"
+	"github.com/cantylv/authorization-service/microservices/task_manager/internal/clients"
 	"github.com/cantylv/authorization-service/microservices/task_manager/internal/delivery/route"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
@@ -15,17 +15,12 @@ import (
 )
 
 func Run(logger *zap.Logger) {
-	// создадим клиента нашего микросервиса привилегий
-	privelegeClient := client.NewClient(&client.ClientOpts{
-		Host:   "localhost",
-		Port:   8000,
-		UseSsl: false,
-	})
-	privelegeClient.CheckConnection()
+	// создадим кластер клиентов наших микросервисов
+	clientCluster := clients.InitCluster()
 
 	r := mux.NewRouter()
 	// инициализуруем серверные ручки
-	handler := route.InitHTTPHandlers(r, privelegeClient, logger)
+	handler := route.InitHTTPHandlers(r, clientCluster, logger)
 	srv := &http.Server{
 		Handler:      handler,
 		Addr:         viper.GetString("task_manager.address"),

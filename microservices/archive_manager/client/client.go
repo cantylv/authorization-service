@@ -105,7 +105,7 @@ func (c *Client) GetArchive(meta *RequestMeta) ([]Record, *RequestStatus) {
 		}
 		return resp, newRequestStatus(nil, respRequest.StatusCode)
 
-	case http.StatusBadRequest, http.StatusForbidden, http.StatusInternalServerError:
+	case http.StatusBadRequest, http.StatusInternalServerError:
 		var resp ResponseError
 		err = json.NewDecoder(respRequest.Body).Decode(&resp)
 		if err != nil {

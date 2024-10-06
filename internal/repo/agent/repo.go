@@ -6,6 +6,7 @@ import (
 	ent "github.com/cantylv/authorization-service/internal/entity"
 	me "github.com/cantylv/authorization-service/internal/utils/myerrors"
 	"github.com/jackc/pgx/v5"
+	"github.com/spf13/viper"
 )
 
 type Repo interface {
@@ -57,10 +58,37 @@ func (r *RepoLayer) GetAll(ctx context.Context) ([]*ent.Agent, error) {
 }
 
 func (r *RepoLayer) Create(ctx context.Context, name string) (*ent.Agent, error) {
-	row := r.dbConn.QueryRow(ctx, `INSERT INTO agent(name) VALUES($1) RETURNING id, name`, name)
-	var a ent.Agent
-	err := row.Scan(&a.ID, &a.Name)
+	tx, err := r.dbConn.Begin(ctx)
 	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+	}()
+	row := tx.QueryRow(ctx, `INSERT INTO agent(name) VALUES($1) RETURNING id, name`, name)
+	var a ent.Agent
+	err = row.Scan(&a.ID, &a.Name)
+	if err != nil {
+		return nil, err
+	}
+	// нужно добавить root в права на владение агентом
+	var userID string
+	row = tx.QueryRow(ctx, `SELECT id FROM "user" where email=$1`, viper.GetString("root_email"))
+	err = row.Scan(&userID)
+	if err != nil {
+		return nil, err
+	}
+	tag, err := tx.Exec(ctx, `INSERT INTO privelege_user(agent_id, user_id) VALUES($1, $2)`, a.ID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, me.ErrNoRowsAffected
+	}
+	// если все прошло успешно, коммитим транзакцию
+	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	return &a, nil

@@ -3,9 +3,10 @@ package myerrors
 import "errors"
 
 var (
-	ErrNoRequestIdInContext = errors.New("no request_id in request context")
-	ErrNoMetaInContext      = errors.New("no meta in request context")
-	ErrInternal             = errors.New("internal server error, please try again later")
+	ErrNoRequestIdInContext       = errors.New("no request_id in request context")
+	ErrNoMetaInContext            = errors.New("no meta in request context")
+	ErrInternal                   = errors.New("internal server error, please try again later")
+	ErrUserDoesntHaveEnoughPrivelege = errors.New("user doesn't have enough privelege to the target agent")
 )
 
 // DTO

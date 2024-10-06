@@ -1,6 +1,6 @@
 postgres:
-  user: adminka
-  password: adminka123
+  user: admin
+  password: admin123
   connectionHost: localhost
   port: 5433
   database_name: archive
