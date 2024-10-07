@@ -104,7 +104,7 @@ erDiagram
 erDiagram
     record {
         INT id PK "GENERATED ALWAYS AS IDENTITY"
-        TEXT(10-500) "text" "NOT NULL"
+        TEXT(10-500) text "NOT NULL"
     }
 ```
 
