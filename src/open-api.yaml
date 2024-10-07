@@ -1,0 +1,23 @@
+openapi: 3.0.0
+info:
+  title: API микросервиса прав пользователя 
+  version: 1.0.0
+  description: API позволяет создавать, удалять пользователя, а также давать ему права на пользование различными агентами.
+paths:
+  /ping:
+    get:
+      summary: Проверка работоспособности сервера
+      description: Возвращает ответ "pong" для проверки работоспособности API.
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: "pong"
+        '500':
+          description: Внутренняя ошибка сервера
