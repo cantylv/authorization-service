@@ -13,9 +13,9 @@
 - [Команда проекта](#команда-проекта)
 
 ## Технологии
-- [Golang1.23.1 darwin/arm64](https://www.gatsbyjs.com/)
-- [TypeScript](https://www.typescriptlang.org/)
-- ...
+- [Golang 1.23.1](https://go.dev/dl/)
+- [Docker 4.31.0](https://docs.docker.com/engine/install/)
+- []
 
 ## Использование
 Расскажите как установить и использовать ваш проект, покажите пример кода:
