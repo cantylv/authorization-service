@@ -28,35 +28,28 @@ services:
       - POSTGRES_PASSWORD=${A_POSTGRES_PASSWORD}
       - POSTGRES_DB=${A_POSTGRES_DATABASE}
     volumes:
-      - type: bind
-        source: ./microservices/archive_manager/services/postgres/docker-entrypoint-initdb.d
-        target: /docker-entrypoint-initdb.d
-        read_only: true
-      - type: volume
-        source: ./services/postgres/archive/data
-        target: /var/lib/postgresql/data
-        read_only: false
+      - ./microservices/archive_manager/services/postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
     expose:
       - ${A_POSTGRES_PORT}
     networks:
       - ecosystem
-  hydra:
-    image: oryd/hydra:1.4.8
-    ports:
-      - ${HYDRA_PUBLIC_PORT}:${HYDRA_PUBLIC_PORT}
-      - ${HYDRA_PRIVATE_PORT}:${HYDRA_PRIVATE_PORT}
-    command:
-      serve all --dangerous-force-http
-    environment:
-      - URLS_SELF_ISSUER=http://0.0.0.0:4444
-      - URLS_CONSENT=http://0.0.0.0:3000/consent
-      - URLS_LOGIN=http://0.0.0.0:3000/login
-      - URLS_LOGOUT=http://0.0.0.0:3000/logout
-      - DSN=memory
-      - SECRETS_SYSTEM=youReallyNeedToChangeThis
-      - OIDC_SUBJECT_IDENTIFIERS_SUPPORTED_TYPES=public,pairwise
-      - OIDC_SUBJECT_IDENTIFIERS_PAIRWISE_SALT=youReallyNeedToChangeThis
-    restart: unless-stopped
+  # hydra:
+  #   image: oryd/hydra:1.4.8
+  #   ports:
+  #     - ${HYDRA_PUBLIC_PORT}:${HYDRA_PUBLIC_PORT}
+  #     - ${HYDRA_PRIVATE_PORT}:${HYDRA_PRIVATE_PORT}
+  #   command:
+  #     serve all --dangerous-force-http
+  #   environment:
+  #     - URLS_SELF_ISSUER=http://0.0.0.0:4444
+  #     - URLS_CONSENT=http://0.0.0.0:3000/consent
+  #     - URLS_LOGIN=http://0.0.0.0:3000/login
+  #     - URLS_LOGOUT=http://0.0.0.0:3000/logout
+  #     - DSN=memory
+  #     - SECRETS_SYSTEM=youReallyNeedToChangeThis
+  #     - OIDC_SUBJECT_IDENTIFIERS_SUPPORTED_TYPES=public,pairwise
+  #     - OIDC_SUBJECT_IDENTIFIERS_PAIRWISE_SALT=youReallyNeedToChangeThis
+  #   restart: unless-stopped
   microservice_privelege:
     build:
       context: ./
