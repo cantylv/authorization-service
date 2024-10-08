@@ -217,7 +217,7 @@ func (h *PrivelegeHandlerManager) DeleteAgentFromUser(w http.ResponseWriter, r *
 		return
 	}
 
-	f.Response(w, dto.ResponseDetail{Detail: "agent was succesful deleted from group"}, http.StatusOK)
+	f.Response(w, dto.ResponseDetail{Detail: "agent was succesful deleted from user"}, http.StatusOK)
 }
 
 func (h *PrivelegeHandlerManager) GetUserAgents(w http.ResponseWriter, r *http.Request) {

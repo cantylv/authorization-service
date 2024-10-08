@@ -1,16 +1,113 @@
 openapi: 3.0.0
 info:
-  title: API микросервиса прав пользователя 
+  title: API взаимодействия с микросервисом прав
   version: 1.0.0
-  description: API позволяет создавать, удалять пользователя, а также давать ему права на пользование различными агентами.
+  description: Описание путей и методов запроса к ним, статусов ответа и параметров.
+servers:
+  - url: /api/v1
+    description: Базовый префикс для всех запросов
+    
 paths:
+  ## HEALTH CHECK
   /ping:
     get:
-      summary: Проверка работоспособности сервера
-      description: Возвращает ответ "pong" для проверки работоспособности API.
+      tags:
+        - HealthCheck
+      summary: Проверка работоспособности микросервиса, echo-ручка. Если ответ 200, то можно успешно выполнять запросы.
       responses:
-        '200':
-          description: Успешный ответ
+        '200': 
+            description: Микросервис успешно подключен.
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    detail:
+                      type: string
+                      example: "pong"
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+                
+  ## AGENT
+  /agents/{agent_name}/who_creates/{email_create}:
+    post:
+      tags:
+        - Agent
+      summary: Создание агента root пользователем. Только он может создавать агентов.
+      parameters:
+        - name: agent_name
+          in: path
+          required: true
+          description: Имя агента
+          schema:
+            type: string
+            minLength: 2   
+            maxLength: 50
+        - name: email_create
+          in: path
+          required: true
+          description: email root пользователя
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+      responses:
+        '200': 
+          description: Агент успешно создан root пользователем.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrAgentAlreadyExist'
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+        '403':
+          description: Только root пользователь может создавать агента.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrOnlyRootCanAddAgent'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+                
+  /agents/{agent_name}/who_deletes/{email_delete}:
+    delete:
+      tags:
+        - Agent
+      summary: Удаление агента root пользователем. Только он может удалять агентов.
+      parameters:
+        - name: agent_name
+          in: path
+          required: true
+          description: Имя агента
+          schema:
+            type: string
+            minLength: 2   
+            maxLength: 50
+        - name: email_delete
+          in: path
+          required: true
+          description: email root пользователя, который пытается удалить агента.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+      responses:
+        '200': 
+          description: Агент успешно удален root пользователем.
           content:
             application/json:
               schema:
@@ -18,6 +115,1321 @@ paths:
                 properties:
                   detail:
                     type: string
-                    example: "pong"
+                    example: "agent was succesful deleted"
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrAgentNotExist'
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+        '403':
+          description: Только root пользователь может удалить агента.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrOnlyRootCanDeleteAgent'
         '500':
-          description: Внутренняя ошибка сервера
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+    
+  /agents/who_reads/{email_read}:
+    get:
+      tags:
+        - Agent
+      summary: Получение списка агентов root пользователем. Только он может его получить.
+      parameters:
+        - name: email_read
+          in: path
+          required: true
+          description: email root пользователя, который пытается получить список агентов.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+      responses:
+        '200': 
+          description: root пользователь успешно получил список агентов.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Agent'
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInvalidEmail'
+        '403':
+          description: Только root пользователь может удалить агента.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrOnlyRootCanGetAgents'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+  ## USER        
+  /users:
+    post:
+      tags:
+        - User
+      summary: Создание пользователя. 
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateData'
+      responses:
+        '200': 
+          description: Пользователь успешно создан.
+          content:
+            application/json:
+              schema:
+                  $ref: '#/components/schemas/UserWithoutPassword'
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrInvalidData'
+                  - $ref: '#/components/schemas/ErrPasswordTooShort'
+                  - $ref: '#/components/schemas/ErrInvalidLastName'
+                  - $ref: '#/components/schemas/ErrInvalidFirstName'
+                  - $ref: '#/components/schemas/ErrPasswordTooLong'
+                  - $ref: '#/components/schemas/ErrPasswordFormat'
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+                  - $ref: '#/components/schemas/ErrUserAlreadyExist'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+      
+  /users/{email}:
+    get:
+      tags:
+        - User
+      summary: Получение данных пользователя. Любой пользователь может запросить данные о другом.
+      parameters:
+        - name: email
+          in: path
+          required: true
+          description: email пользователя, данные которого мы пытаемся получить.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+      responses:
+        '200': 
+          description: Данные пользователя успешно получены.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithoutPassword'
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrUserNotExist'
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+    
+  /users/{email}/who_deletes/{email_delete}:
+    delete:
+      tags:
+        - User
+      summary: Удаление пользователя из системы. Только root пользователь может удалить пользователя.
+      parameters:
+        - name: email
+          in: path
+          required: true
+          description: email пользователя, которого мы хотим удалить.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: email_delete
+          in: path
+          required: true
+          description: email пользователя, который пытается удалить.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+      responses:
+        '200': 
+          description: Пользователь успешно удален из системы.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: "user was succesful deleted"
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrUserNotExist'
+                  - $ref: '#/components/schemas/ErrUserIsResponsible'
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+        '403':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrOnlyRootCanDeleteUser'
+                  - $ref: '#/components/schemas/ErrCantDeleteRoot'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+
+  ## GROUP        
+  /groups/{group_name}/add_user/{email}/who_invites/{email_invite}:
+    post:
+      tags:
+        - Group
+      summary: Добавление пользователя в группу. Добавить в группу может только ответственный за нее. 
+      parameters:
+        - name: email
+          in: path
+          required: true
+          description: email пользователя, которого мы хотим добавить в группу.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: email_invite
+          in: path
+          required: true
+          description: email ответственного за группу.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: group_name
+          in: path
+          required: true
+          description: имя группы, в которую ответственный хочет добавить пользователя.
+          schema:
+            type: string
+            minLength: 2 
+            maxLength: 30
+      responses:
+        '200': 
+          description: Пользователь успешно добавлен в группу.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: "user was succesful added to group '<group_name>'"
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+                  - $ref: '#/components/schemas/ErrGroupNotExist'
+                  - $ref: '#/components/schemas/ErrUserNotExist'
+                  - $ref: '#/components/schemas/ErrUserEmailMustBeDiff'
+                  - $ref: '#/components/schemas/ErrUserAlreadyInGroup'
+        '403':
+          description: Только отсветственный за группу может добавлять в нее пользователь. root также может добавлять в любую группу.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrOnlyOwnerCanAddUserToGroup'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+                
+  /users/{email}/groups/who_asks/{email_ask}:
+    get:
+      tags:
+        - Group
+      summary: Возвращает группы пользователя. Получить группы пользователя может получить любой пользователь, но ему покажутся только общие группы. То есть если пользователь А имеет группы users, devs, а пользователь B - users, то при запросе групп пользователя А пользователем В ему отобразится только одна группа users. 
+      parameters:
+        - name: email
+          in: path
+          required: true
+          description: email пользователя, группы которого мы хотим посмотреть.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: email_ask
+          in: path
+          required: true
+          description: email пользователя, который делает запрос.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+      responses:
+        '200': 
+          description: Список групп успешно получен.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Group'
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+                  - $ref: '#/components/schemas/ErrUserNotExist'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+
+  /groups/{group_name}/kick_user/{email}/who_kicks/{email_kick}:
+    post:
+      tags:
+        - Group
+      summary: Удаление пользователя из группы. Удалить из группы может только ответственный за нее. 
+      parameters:
+        - name: email
+          in: path
+          required: true
+          description: email пользователя, которого мы хотим удалить из группы.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: email_kick
+          in: path
+          required: true
+          description: email ответственного за группу.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: group_name
+          in: path
+          required: true
+          description: имя группы, из которой ответственный хочет удалить пользователя.
+          schema:
+            type: string
+            minLength: 2 
+            maxLength: 30
+      responses:
+        '200': 
+          description: Пользователь успешно удален из группы.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: "user was succesful deleted from group '<group_name>'"
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrDeleteRootFromGroup'
+                  - $ref: '#/components/schemas/ErrGroupNotExist'
+                  - $ref: '#/components/schemas/ErrUserNotExist'
+                  - $ref: '#/components/schemas/ErrUserIsNotInGroup'
+                  - $ref: '#/components/schemas/ErrOwnerCantExitFromGroup'
+        '403':
+          description: Только ответственный за группу может удалить оттуда пользователя. root также может удалить из лбой группы.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrOnlyOwnerCanDeleteUserFromGroup'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+  
+  /groups/{group_name}/who_adds/{email_add}:
+    post:
+      tags:
+        - Group
+      summary: Создание заявки на новую группу. Это может сделать любой пользователь. Если это делает root, то заявка не создается, а создается сразу группа. Поздже root принимает или отклоняет заявки пользователей на создание группы. 
+      parameters:
+        - name: email_add
+          in: path
+          required: true
+          description: email пользователя, который захотел создать группу.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: group_name
+          in: path
+          required: true
+          description: Имя группы.
+          schema:
+            type: string
+            minLength: 2 
+            maxLength: 30
+      responses:
+        '200':
+          description: Заявка успешно создана.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bid'
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrUserNotExist'
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+                  - $ref: '#/components/schemas/ErrGroupAlreadyExist'
+                  - $ref: '#/components/schemas/ErrBidAlreadyExist'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+                
+  /users/{email}/groups/{group_name}/who_change_status/{email_change_status}:
+    put:
+      tags:
+        - Group
+      summary: Принятие/отклонение заявки на создание новой группы. Это может сделать только root.
+      parameters:
+        - name: email
+          in: path
+          required: true
+          description: email пользователя, который захотел создать группу.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: email_change_status
+          in: path
+          required: true
+          description: email root пользователя, который либо одобряет, либо отклоняет заявку на создание группы.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: group_name
+          in: path
+          required: true
+          description: Имя группы.
+          schema:
+            type: string
+            minLength: 2 
+            maxLength: 30
+      responses:
+        '200':
+          description: Заявка успешно создана.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bid'
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrInvalidStatus'
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+                  - $ref: '#/components/schemas/ErrUserNotExist'
+                  - $ref: '#/components/schemas/ErrBidNotExist'
+                  - $ref: '#/components/schemas/ErrGroupAlreadyExist'
+        '403':
+          description: Только root может менять статус заявки.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrOnlyRootCanChangeBidStatus'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+                
+  /groups/{group_name}/users/{email}/who_change_owner/{email_change_owner}:
+    put:
+      tags:
+        - Group
+      summary: Изменение ответственного группы. Это может сделать только root. Существует потому, что нельзя удалить пользователя, если он является ответственным за какую-либо группу.
+      parameters:
+        - name: email
+          in: path
+          required: true
+          description: email пользователя, который будет новым ответственным.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: email_change_owner
+          in: path
+          required: true
+          description: email root пользователя, который либо одобряет, либо отклоняет заявку на создание группы.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: group_name
+          in: path
+          required: true
+          description: Имя группы.
+          schema:
+            type: string
+            minLength: 2 
+            maxLength: 30
+      responses:
+        '200':
+          description: Новый ответственный успешно установлен.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrGroupNotExist'
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+                  - $ref: '#/components/schemas/ErrUserNotExist'
+                  - $ref: '#/components/schemas/ErrUserIsAlreadyOwner'
+        '403':
+          description: Только root меняет ответственных и нельзя поменять владельца группы пользователей, она закреплена за root.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrOnlyOwnerCanAppointNewOwner'
+                  - $ref: '#/components/schemas/ErrOnlyRootCanBeOwnerOfUsersGroup'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+                
+  # PRIVELEGE
+  ## GROUP
+  /groups/{group_name}/priveleges/new/agents/{agent_name}/who_adds/{email_add}:
+    post: 
+      tags:
+        - PrivelegeGroup
+      summary: Добавление группе нового агента. Добавить агента группе может только root.
+      parameters:
+        - name: agent_name
+          in: path
+          required: true
+          description: Имя агента.
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 50
+        - name: email_add
+          in: path
+          required: true
+          description: email root пользователя, который добавляет агента группе.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: group_name
+          in: path
+          required: true
+          description: Имя группы.
+          schema:
+            type: string
+            minLength: 2 
+            maxLength: 30
+      responses:
+        '200':
+          description: Агент успешно добавлен к группе.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: "agent was succesful added to group"
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+                  - $ref: '#/components/schemas/ErrAgentNotExist'
+                  - $ref: '#/components/schemas/ErrGroupNotExist'
+                  - $ref: '#/components/schemas/ErrGroupAgentAlreadyExist'
+        '403':
+          description: Добавить агента группе может только root.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrOnlyRootCanAddAgent'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+                
+  /groups/{group_name}/priveleges/delete/agents/{agent_name}/who_deletes/{email_delete}:
+    delete: 
+      tags:
+        - PrivelegeGroup
+      summary: Удаление агента из группы. Удалить агента может только root.
+      parameters:
+        - name: agent_name
+          in: path
+          required: true
+          description: Имя агента.
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 50
+        - name: email_delete
+          in: path
+          required: true
+          description: email root пользователя, который удалеяет.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: group_name
+          in: path
+          required: true
+          description: Имя группы.
+          schema:
+            type: string
+            minLength: 2 
+            maxLength: 30
+      responses:
+        '200':
+          description: Агент успешно удален из группы.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: "agent was succesful deleted from group"
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+                  - $ref: '#/components/schemas/ErrAgentNotExist'
+                  - $ref: '#/components/schemas/ErrGroupNotExist'
+                  - $ref: '#/components/schemas/ErrGroupAgentNotExist'
+        '403':
+          description: Добавить агента группе может только root.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrOnlyRootCanDeleteAgent'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+  /groups/{group_name}/priveleges/who_asks/{email_ask}:
+    delete: 
+      tags:
+        - PrivelegeGroup
+      summary: Получение привелегий группы. Сделать это может только ответственный за группу и root.
+      parameters:
+        - name: email_ask
+          in: path
+          required: true
+          description: email root ответственного.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: group_name
+          in: path
+          required: true
+          description: Имя группы.
+          schema:
+            type: string
+            minLength: 2 
+            maxLength: 30
+      responses:
+        '200':
+          description: Список доступных агентов успешно получен.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Agent'
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+                  - $ref: '#/components/schemas/ErrGroupNotExist'
+                  - $ref: '#/components/schemas/ErrUserNotExist'
+        '403':
+          description: Получить привелегии группы может только ответственный за группу и root.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrUserIsNotOwner'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+                
+  ## USER
+  /users/{email}/priveleges/new/agents/{agent_name}/who_adds/{email_add}:
+    post: 
+      tags:
+        - PrivelegeUser
+      summary: Добавление пользователю нового агента. Добавить агента пользователю может только root.
+      parameters:
+        - name: agent_name
+          in: path
+          required: true
+          description: Имя агента.
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 50
+        - name: email_add
+          in: path
+          required: true
+          description: email root пользователя, который добавляет агента пользователю.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: email
+          in: path
+          required: true
+          description: email пользователя.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+      responses:
+        '200':
+          description: Агент успешно добавлен к пользователю.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: "agent was succesful added to user"
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+                  - $ref: '#/components/schemas/ErrAgentNotExist'
+                  - $ref: '#/components/schemas/ErrGroupNotExist'
+                  - $ref: '#/components/schemas/ErrUserAgentAlreadyExist'
+        '403':
+          description: Добавить агента группе может только root.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrOnlyRootCanAddAgent'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+                
+  /users/{email}/priveleges/delete/agents/{agent_name}/who_deletes/{email_delete}:
+    delete: 
+      tags:
+        - PrivelegeUser
+      summary: Удаление агента у пользователя. Удалить агента может только root.
+      parameters:
+        - name: agent_name
+          in: path
+          required: true
+          description: Имя агента.
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 50
+        - name: email_delete
+          in: path
+          required: true
+          description: email root пользователя, который удаляет.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: email
+          in: path
+          required: true
+          description: email пользователя.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+      responses:
+        '200':
+          description: Агент успешно удален у пользователя.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: "agent was succesful deleted from user"
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+                  - $ref: '#/components/schemas/ErrAgentNotExist'
+                  - $ref: '#/components/schemas/ErrUserNotExist'
+                  - $ref: '#/components/schemas/ErrUserAgentNotExist'
+        '403':
+          description: Добавить агента группе может только root.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrOnlyRootCanDeleteAgent'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+                
+  /users/{email}/priveleges/who_asks/{email_ask}:
+    get: 
+      tags:
+        - PrivelegeUser
+      summary: Получение привелегий пользователя. Сделать это может только сам пользователь и root.
+      parameters:
+        - name: email_ask
+          in: path
+          required: true
+          description: email пользователя, который спрашивает.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+        - name: email
+          in: path
+          required: true
+          description: email пользователя.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+      responses:
+        '200':
+          description: Список доступных агентов успешно получен.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Agent'
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+                  - $ref: '#/components/schemas/ErrUserNotExist'
+        '403':
+          description: Получить привелегии пользователя может только сам пользователь и root.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrGetUserAgents'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+  
+  
+  /users/{email}/check_access/agents/{agent_name}:
+    get: 
+      tags:
+        - PrivelegeUser
+      summary: Проверяет, имеет ли пользователь доступ к агенту.
+      parameters:
+        - name: agent_name
+          in: path
+          required: true
+          description: имя агента, доступ к которому мы хотим проверить.
+          schema:
+            type: string
+            minLength: 2   
+            maxLength: 50
+        - name: email
+          in: path
+          required: true
+          description: email пользователя.
+          schema:
+            type: string
+            minLength: 6   
+            maxLength: 50
+      responses:
+        '200':
+          description: Возвращает булевое значение разрешения доступа.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  can_execute:
+                    type: boolean
+                    example: true
+        '400':
+          description: Переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrInvalidEmail'
+                  - $ref: '#/components/schemas/ErrAgentNotExist'
+                  - $ref: '#/components/schemas/ErrUserNotExist'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrInternal'
+
+    
+    
+components:
+  schemas:
+    ## DTO and ENTITIES
+    CreateData:
+      type: object
+      required:
+        - email
+        - password
+        - first_name
+        - last_name
+      properties:
+        email:
+          type: string
+          format: email
+          example: "sber@mail.ru"
+        password:
+          type: string
+          format: password
+          example: "Passw0rd!"
+        first_name:
+          type: string
+          example: "German"
+        last_name:
+          type: string
+          example: "Gref"
+
+    UserWithoutPassword:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        first_name:
+          type: string
+          example: "John"
+        last_name:
+          type: string
+          example: "Doe"
+
+    Bid:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 123
+        group_name:
+          type: string
+          example: "devs"
+        user_id:
+          type: string
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        status:
+          type: string
+          example: "in_progress"
+
+    Group:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1232
+        name:
+          type: string
+          example: "devs"
+        owner_id:
+          type: string
+          example: "gref@mail.ru"
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1001
+        name:
+          type: string
+          example: "auth"
+          
+    ErrInternal:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "internal server error, please try again later"
+    
+    ErrInvalidData:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "you has passed invalid data in request data"
+
+    ErrOnlyRootCanDeleteUser:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "only root user can delete user from system"
+
+    ErrOnlyOwnerCanAddUserToGroup:
+      type: object
+      properties:
+        error:
+          type: string
+          example: only owner of group can add user to his group
+
+    ErrOnlyOwnerCanDeleteUserFromGroup:
+      type: object
+      properties:
+        error:
+          type: string
+          example: only owner of group can delete user from his group
+
+    ErrOnlyOwnerCanAppointNewOwner:
+      type: object
+      properties:
+        error:
+          type: string
+          example: only owner can attain new owner
+
+    ErrOnlyRootCanBeOwnerOfUsersGroup:
+      type: object
+      properties:
+        error:
+          type: string
+          example: only root can be an owner of users group
+
+    ErrOnlyRootCanChangeBidStatus:
+      type: object
+      properties:
+        error:
+          type: string
+          example: only root user can approve or reject bid
+
+    ErrOnlyRootCanAddAgent:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "only root user can add server agent"
+
+    ErrOnlyRootCanDeleteAgent:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "only root user can delete server agent"
+
+    ErrOnlyRootCanGetAgents:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "only root user can get server agents"
+
+    ErrGetUserAgents:
+      type: object
+      properties:
+        error:
+          type: string
+          example: you can't get user agents
+
+    ErrCantDeleteRoot:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "cant't delete root user"
+
+    ErrUserEmailMustBeDiff:
+      type: object
+      properties:
+        error:
+          type: string
+          example: user emails must be different
+
+    ErrUserAlreadyInGroup:
+      type: object
+      properties:
+        error:
+          type: string
+          example: user already in group
+
+    ErrUserIsNotInGroup:
+      type: object
+      properties:
+        error:
+          type: string
+          example: user is not in group
+
+    ErrUserIsAlreadyOwner:
+      type: object
+      properties:
+        error:
+          type: string
+          example: user is already an owner
+
+    ErrUserIsNotOwner:
+      type: object
+      properties:
+        error:
+          type: string
+          example: user is not an owner
+
+    ErrUserIsResponsible:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "user is responsible for group/groups, so root user need to appoint new owner"
+
+    ErrDeleteRootFromGroup:
+      type: object
+      properties:
+        error:
+          type: string
+          example: user doesn't have enough rights to delete root user from group
+
+    ErrUserNotExist:
+      type: object
+      properties:
+        error:
+          type: string
+          example: user is not exist
+
+    ErrGroupNotExist:
+      type: object
+      properties:
+        error:
+          type: string
+          example: group is not exist
+
+    ErrAgentNotExist:
+      type: object
+      properties:
+        error:
+          type: string
+          example: agent is not exist
+
+    ErrBidNotExist:
+      type: object
+      properties:
+        error:
+          type: string
+          example: user doesn't have bid with this name
+
+    ErrOwnerCantExitFromGroup:
+      type: object
+      properties:
+        error:
+          type: string
+          example: to leave a group you need to remove the rights of the group owner
+
+    ErrUserAlreadyExist:
+      type: object
+      properties:
+        error:
+          type: string
+          example: user with this email already exist
+
+    ErrGroupAlreadyExist:
+      type: object
+      properties:
+        error:
+          type: string
+          example: group with this name already exist
+
+    ErrBidAlreadyExist:
+      type: object
+      properties:
+        error:
+          type: string
+          example: bid with this name already exist
+
+    ErrAgentAlreadyExist:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "agent with this name already exist"
+
+    ErrGroupAgentAlreadyExist:
+      type: object
+      properties:
+        error:
+          type: string
+          example: agent with this name already belongs to the selected group
+
+    ErrUserAgentAlreadyExist:
+      type: object
+      properties:
+        error:
+          type: string
+          example: agent with this name already belongs to the selected user
+
+    ErrGroupAgentNotExist:
+      type: object
+      properties:
+        error:
+          type: string
+          example: agent with this name not belongs to the selected group
+
+    ErrUserAgentNotExist:
+      type: object
+      properties:
+        error:
+          type: string
+          example: agent with this name not belongs to the selected user
+
+    ErrInvalidEmail:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "incorrect email was sent, correct format is username@domain.extension, e.g.: gref@sber.ru"
+
+    ErrInvalidStatus:
+      type: object
+      properties:
+        error:
+          type: string
+          example: status must be in range(approved, rejected)
+
+    ErrInvalidFirstName:
+      type: object
+      properties:
+        error:
+          type: string
+          example: incorrect first name was sent, it must start with a capital letter and be between 2 and 50 characters long
+
+    ErrInvalidLastName:
+      type: object
+      properties:
+        error:
+          type: string
+          example: incorrect last name was sent, it must start with a capital letter and be between 2 and 50 characters long
+
+    ErrPasswordTooLong:
+      type: object
+      properties:
+        error:
+          type: string
+          example: password is too long, it must be between 8 and 30 characters long
+
+    ErrPasswordTooShort:
+      type: object
+      properties:
+        error:
+          type: string
+          example: password is too short, it must be between 8 and 30 characters long
+
+    ErrPasswordFormat:
+      type: object
+      properties:
+        error:
+          type: string
+          example: password must contain at least one digit and one capital letter

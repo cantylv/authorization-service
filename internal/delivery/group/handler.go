@@ -56,10 +56,14 @@ func (h *GroupHandlerManager) AddUserToGroup(w http.ResponseWriter, r *http.Requ
 		if errors.Is(err, me.ErrGroupNotExist) ||
 			errors.Is(err, me.ErrUserEmailMustBeDiff) ||
 			errors.Is(err, me.ErrUserNotExist) ||
-			errors.Is(err, me.ErrOnlyOwnerCanAddUserToGroup) ||
 			errors.Is(err, me.ErrUserAlreadyInGroup) {
 			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
 			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, me.ErrOnlyOwnerCanAddUserToGroup) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusForbidden)
 			return
 		}
 		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
@@ -133,10 +137,14 @@ func (h *GroupHandlerManager) KickOutUser(w http.ResponseWriter, r *http.Request
 			errors.Is(err, me.ErrDeleteRootFromGroup) ||
 			errors.Is(err, me.ErrUserNotExist) ||
 			errors.Is(err, me.ErrUserIsNotInGroup) ||
-			errors.Is(err, me.ErrOnlyOwnerCanDeleteUserFromGroup) ||
 			errors.Is(err, me.ErrOwnerCantExitFromGroup) {
 			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
 			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, me.ErrOnlyOwnerCanDeleteUserFromGroup) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusForbidden)
 			return
 		}
 		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
@@ -201,12 +209,16 @@ func (h *GroupHandlerManager) ChangeBidStatus(w http.ResponseWriter, r *http.Req
 	bid, err := h.usecaseGroup.UpdateRequestStatus(r.Context(), userEmail, groupName, userChangeStatus, bidStatus)
 	if err != nil {
 		if errors.Is(err, me.ErrInvalidStatus) ||
-			errors.Is(err, me.ErrOnlyRootCanChangeBidStatus) ||
 			errors.Is(err, me.ErrUserNotExist) ||
 			errors.Is(err, me.ErrBidNotExist) ||
 			errors.Is(err, me.ErrGroupAlreadyExist) {
 			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
 			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, me.ErrOnlyRootCanChangeBidStatus) {
+			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
+			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusForbidden)
 			return
 		}
 		h.logger.Error(err.Error(), zap.String(mc.RequestID, requestID))
@@ -239,13 +251,12 @@ func (h *GroupHandlerManager) ChangeOwner(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		if errors.Is(err, me.ErrGroupNotExist) ||
 			errors.Is(err, me.ErrUserNotExist) ||
-			errors.Is(err, me.ErrUserIsAlreadyOwner) ||
-			errors.Is(err, me.ErrOnlyRootCanBeOwnerOfUsersGroup) {
+			errors.Is(err, me.ErrUserIsAlreadyOwner) {
 			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
 			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusBadRequest)
 			return
 		}
-		if errors.Is(err, me.ErrOnlyOwnerCanAppointNewOwner) {
+		if errors.Is(err, me.ErrOnlyOwnerCanAppointNewOwner) || errors.Is(err, me.ErrOnlyRootCanBeOwnerOfUsersGroup) {
 			h.logger.Info(err.Error(), zap.String(mc.RequestID, requestID))
 			f.Response(w, dto.ResponseError{Error: err.Error()}, http.StatusForbidden)
 			return

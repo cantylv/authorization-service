@@ -41,7 +41,6 @@ var (
 	ErrUserAgentAlreadyExist  = errors.New("agent with this name already belongs to the selected user")
 	ErrGroupAgentNotExist     = errors.New("agent with this name not belongs to the selected group")
 	ErrUserAgentNotExist      = errors.New("agent with this name not belongs to the selected user")
-	ErrPasswordMismatch       = errors.New("passwords are not equal")
 	// DTO
 	ErrInvalidEmail     = errors.New("incorrect email was sent, correct format is username@domain.extension, e.g.: gref@sber.ru")
 	ErrInvalidStatus    = errors.New("status must be in range(approved, rejected)")

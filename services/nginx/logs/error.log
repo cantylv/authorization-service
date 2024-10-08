@@ -213,3 +213,17 @@
 2024/10/07 20:32:06 [notice] 1#1: worker process 29 exited with code 0
 2024/10/07 20:32:06 [notice] 1#1: worker process 35 exited with code 0
 2024/10/07 20:32:06 [notice] 1#1: exit
+2024/10/08 10:54:51 [notice] 1#1: using the "epoll" event method
+2024/10/08 10:54:51 [notice] 1#1: nginx/1.27.1
+2024/10/08 10:54:51 [notice] 1#1: built by gcc 12.2.0 (Debian 12.2.0-14) 
+2024/10/08 10:54:51 [notice] 1#1: OS: Linux 6.6.31-linuxkit
+2024/10/08 10:54:51 [notice] 1#1: getrlimit(RLIMIT_NOFILE): 1048576:1048576
+2024/10/08 10:54:51 [notice] 1#1: start worker processes
+2024/10/08 10:54:51 [notice] 1#1: start worker process 22
+2024/10/08 10:54:51 [notice] 1#1: start worker process 23
+2024/10/08 10:54:51 [notice] 1#1: start worker process 24
+2024/10/08 10:54:51 [notice] 1#1: start worker process 25
+2024/10/08 10:54:51 [notice] 1#1: start worker process 26
+2024/10/08 10:54:51 [notice] 1#1: start worker process 27
+2024/10/08 10:54:51 [notice] 1#1: start worker process 28
+2024/10/08 10:54:51 [notice] 1#1: start worker process 29
